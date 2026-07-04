@@ -49,4 +49,21 @@ describe("loadConfig", () => {
     expect(() => loadConfig(["--transport", "http"], { CW_SITE: "x", CW_CLIENT_ID: "b" } as NodeJS.ProcessEnv)).toThrow(ConfigError);
     expect(() => loadConfig(["--transport", "http"], { CW_SITE: "x", CW_COMPANY_ID: "a" } as NodeJS.ProcessEnv)).toThrow(ConfigError);
   });
+
+  it("defaults toolsets to the tech preset (backward compatible)", () => {
+    const config = loadConfig(["--transport", "http"], baseEnv);
+    expect(config.toolsets).toEqual(["tickets", "time", "companies", "configurations"]);
+  });
+
+  it("parses CW_TOOLSETS (keys and presets)", () => {
+    const config = loadConfig(["--transport", "http"], { ...baseEnv, CW_TOOLSETS: "dispatch,finance" } as NodeJS.ProcessEnv);
+    expect(config.toolsets).toEqual(["tickets", "schedule", "companies", "configurations", "finance"]);
+  });
+
+  it("--toolsets flag overrides and unknown keys throw ConfigError", () => {
+    expect(loadConfig(["--transport", "http", "--toolsets", "finance"], baseEnv).toolsets).toEqual(["finance"]);
+    expect(() =>
+      loadConfig(["--transport", "http"], { ...baseEnv, CW_TOOLSETS: "tickets,bogus" } as NodeJS.ProcessEnv)
+    ).toThrow(ConfigError);
+  });
 });

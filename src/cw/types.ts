@@ -97,3 +97,46 @@ export interface Member extends Record<string, unknown> {
   firstName?: string;
   lastName?: string;
 }
+
+/** Schedule entry (/schedule/entries) — a dispatch/appointment slot. */
+export interface ScheduleEntry extends Record<string, unknown> {
+  id: number;
+  /** The scheduled object's id (e.g. the ticket id when type is a service ticket). */
+  objectId?: number;
+  name?: string;
+  member?: Ref;
+  where?: Ref;
+  status?: Ref;
+  type?: Ref;
+  dateStart?: string;
+  dateEnd?: string;
+  hours?: number;
+  doneFlag?: boolean;
+}
+
+/** Invoice (/finance/invoices). */
+export interface Invoice extends Record<string, unknown> {
+  id: number;
+  invoiceNumber?: string;
+  type?: string;
+  status?: Ref;
+  company?: Ref;
+  date?: string;
+  dueDate?: string;
+  total?: number;
+  balance?: number;
+}
+
+/** Agreement (/finance/agreements) — a service contract. */
+export interface Agreement extends Record<string, unknown> {
+  id: number;
+  name?: string;
+  type?: Ref;
+  company?: Ref;
+  agreementStatus?: string;
+  startDate?: string;
+  endDate?: string;
+  billAmount?: number;
+  cancelledFlag?: boolean;
+  noEndingDateFlag?: boolean;
+}
