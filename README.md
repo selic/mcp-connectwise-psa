@@ -6,8 +6,7 @@ An MCP ([Model Context Protocol](https://modelcontextprotocol.io)) server for [C
 - **Time entries** — log time against tickets, review your own time
 - **Companies & contacts** — fast lookup (read-only)
 - **Configurations** — devices/assets with serials, IPs, OS, warranty (read-only)
-- **Role-based access control** — viewer / editor bearer tokens decide which tools a session sees
-- **Per-tech API keys (BYOK)** — techs supply their own ConnectWise member keys, so notes and time entries are attributed to the *actual person* in ConnectWise
+- **Per-tech API keys (BYOK)** — each tech supplies their own ConnectWise member keys; ConnectWise enforces that member's security role, and notes and time entries are attributed to the *actual person*
 - **Transports** — stdio for local use, streamable HTTP for shared deployments; Docker image included
 
 ## Quick start (local, stdio)
@@ -49,12 +48,10 @@ A `clientId` is required by the ConnectWise API — register a (free) integratio
 
 ```bash
 CW_SITE=… CW_COMPANY_ID=… CW_CLIENT_ID=… \
-MCP_TOKENS_VIEWER="alice:$(openssl rand -hex 32)" \
-MCP_TOKENS_EDITOR="bot:$(openssl rand -hex 32)" \
 node dist/index.js --transport http --port 3000
 ```
 
-Or with Docker: `docker build -t mcp-connectwise-psa . && docker run -p 3000:3000 -e CW_SITE -e CW_COMPANY_ID -e CW_CLIENT_ID -e MCP_TOKENS_VIEWER -e MCP_TOKENS_EDITOR mcp-connectwise-psa`
+Or with Docker: `docker build -t mcp-connectwise-psa . && docker run -p 3000:3000 -e CW_SITE -e CW_COMPANY_ID -e CW_CLIENT_ID mcp-connectwise-psa`
 
 | Route | Purpose |
 |---|---|
@@ -63,35 +60,29 @@ Or with Docker: `docker build -t mcp-connectwise-psa . && docker run -p 3000:300
 
 > Sessions are held in memory — run a single instance (or sticky sessions).
 
-## Access control
+## Access control — bring your own keys (BYOK)
 
-### Role tokens
+Over HTTP there is **no MCP-level role system**. Each session presents its own ConnectWise member API keys, and ConnectWise itself is the access control: the member's security role decides what succeeds, and every note and time entry is attributed to that member.
 
-```bash
-MCP_TOKENS_VIEWER="alice:tokA,bob:tokB"   # read-only tools
-MCP_TOKENS_EDITOR="helpdesk-bot:tokC"     # + create/update tickets, notes, time entries
-MCP_TOKENS_ADMIN="ops:tokD"               # reserved for future destructive tools
-```
+Send your keys on the initialize request (and on every subsequent request in the session):
 
-Clients send `Authorization: Bearer <token>`. Tools outside the role are not even registered for the session, a runtime guard re-checks every call, and session ids never carry privilege (each request re-authenticates; principal mismatch → 403). Labels appear in the audit log and allow per-person revocation. With no tokens configured the server runs in dev mode (full access + loud warning).
-
-### Bring your own keys (BYOK) — recommended for techs
-
-Send your own ConnectWise member API keys on the initialize request:
-
-```
+```http
 x-cw-public-key:  <public key>
 x-cw-private-key: <private key>
 x-cw-member-id:   <your member identifier>   (optional — enables "my tickets"/"my time")
 ```
 
-The session then acts as *you* in ConnectWise: your security role limits what succeeds, and every note and time entry is attributed to you. `CLIENT_CW_KEYS` controls the policy: `with-token` (default — a bearer token is still required), `open`, or `disabled`. Keys are never logged; sessions are bound to a SHA-256 hash of the pair.
+- A request with no keys is rejected with `401`; both key headers are required together.
+- Keys are never logged. A session is bound to a SHA-256 hash of the key pair; presenting a different pair on the same session id → `403`.
+- Create member API keys in ConnectWise under **My Account → API Keys**. Each tech uses their own.
 
-Token-only sessions use the server-wide `CW_PUBLIC_KEY`/`CW_PRIVATE_KEY` (use an integration API member with a conservative security role — its writes are attributed to that integration member).
+Local **stdio** is single-user and uses the `CW_PUBLIC_KEY`/`CW_PRIVATE_KEY` from the environment instead of headers.
 
 ## Tools
 
-| Tool | Tier |
+The full tool surface is always available; whether a write succeeds is governed by the member's ConnectWise security role.
+
+| Tool | Access |
 |---|---|
 | `cw_my_tickets`, `cw_search_tickets`, `cw_get_ticket` | read |
 | `cw_list_my_time` | read |
@@ -100,7 +91,7 @@ Token-only sessions use the server-wide `CW_PUBLIC_KEY`/`CW_PRIVATE_KEY` (use an
 | `cw_create_ticket`, `cw_update_ticket`, `cw_add_ticket_note` | write |
 | `cw_create_time_entry` | write |
 
-Viewer = read. Editor/Admin = read + write. No destructive (delete) tools in v1.
+No destructive (delete) tools in v1.
 
 ## Configuration reference
 
@@ -109,11 +100,9 @@ Viewer = read. Editor/Admin = read + write. No destructive (delete) tools in v1.
 | `CW_SITE` | — | ConnectWise host (cloud or on-prem; full URLs accepted) |
 | `CW_COMPANY_ID` | — | Login company id |
 | `CW_CLIENT_ID` | — | Integration clientId |
-| `CW_PUBLIC_KEY` / `CW_PRIVATE_KEY` | — | Server-wide API member keys (optional when BYOK is enabled) |
-| `CW_MEMBER_IDENTIFIER` | — | Member the server-wide keys belong to |
+| `CW_PUBLIC_KEY` / `CW_PRIVATE_KEY` | — | API member keys — required for stdio; unused on HTTP (BYOK) |
+| `CW_MEMBER_IDENTIFIER` | — | Member the stdio keys belong to (my-tickets/my-time) |
 | `TRANSPORT` / `PORT` | `stdio` / `3000` | Transport selection |
-| `CLIENT_CW_KEYS` | `with-token` | BYOK policy: `disabled`, `with-token`, `open` |
-| `MCP_TOKENS_VIEWER/EDITOR/ADMIN` | — | `label:token,label:token` per role |
 
 ## Notes & limits
 

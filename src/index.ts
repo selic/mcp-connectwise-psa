@@ -3,7 +3,6 @@
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ConfigError, loadConfig, type ServerConfig } from "./config.js";
-import { loadTokenEntries } from "./auth/tokens.js";
 import { createServer, SERVER_NAME, SERVER_VERSION } from "./server.js";
 import { createApp } from "./http/app.js";
 
@@ -21,38 +20,29 @@ Environment:
   CW_SITE                  ConnectWise host (e.g. na.myconnectwise.net)
   CW_COMPANY_ID            Login company id
   CW_CLIENT_ID             Integration clientId (developer.connectwise.com)
-  CW_PUBLIC_KEY            Server-wide API member public key (optional with BYOK)
-  CW_PRIVATE_KEY           Server-wide API member private key
-  CW_MEMBER_IDENTIFIER     Member the server-wide keys belong to (my-tickets/my-time)
-  MCP_TOKENS_VIEWER        label:token[,label:token…] — read-only access (HTTP)
-  MCP_TOKENS_EDITOR        label:token[,…] — read + tickets/notes/time writes
-  MCP_TOKENS_ADMIN         label:token[,…] — reserved for future destructive tools
-  CLIENT_CW_KEYS           disabled|with-token|open — client-supplied CW keys (default: with-token)
+  CW_PUBLIC_KEY            API member public key (required for stdio)
+  CW_PRIVATE_KEY           API member private key (required for stdio)
+  CW_MEMBER_IDENTIFIER     Member the stdio keys belong to (my-tickets/my-time)
+
+HTTP sessions authenticate per-request with their own member keys via the
+x-cw-public-key / x-cw-private-key headers (BYOK); the CW_* keys above are used
+only by stdio.
 `;
 
 function logStartupSummary(config: ServerConfig): void {
-  const entries = loadTokenEntries();
-  if (entries.length === 0) {
+  console.error(
+    "[auth] HTTP: each session must present its own ConnectWise keys via " +
+      "x-cw-public-key / x-cw-private-key (BYOK); ConnectWise enforces the member's security role."
+  );
+  if (config.publicKey) {
     console.error(
-      "[auth] WARNING: no MCP_TOKENS_* configured — all HTTP requests are accepted with FULL access. " +
-        "Set MCP_TOKENS_VIEWER / MCP_TOKENS_EDITOR / MCP_TOKENS_ADMIN in production."
-    );
-  } else {
-    console.error(
-      `[auth] ${entries.length} token(s) configured: ${entries.map((e) => `${e.label}(${e.role})`).join(", ")}`
+      "[cw] CW_PUBLIC_KEY/CW_PRIVATE_KEY are set but unused on HTTP — sessions use their own keys."
     );
   }
-  console.error(`[auth] Client-supplied ConnectWise keys: ${config.clientKeyMode}`);
-  console.error(
-    config.publicKey
-      ? `[cw] Server-wide keys configured${config.memberIdentifier ? ` (member: ${config.memberIdentifier})` : " (no CW_MEMBER_IDENTIFIER — my-tickets/my-time unavailable for token-only sessions)"}`
-      : "[cw] No server-wide keys — sessions must bring their own via x-cw-public-key/x-cw-private-key."
-  );
 }
 
 async function runStdio(config: ServerConfig): Promise<void> {
   const server = createServer(config, {
-    role: "admin",
     label: "stdio",
     credentials: {
       publicKey: config.publicKey!,

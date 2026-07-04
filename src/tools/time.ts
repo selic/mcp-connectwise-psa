@@ -1,7 +1,7 @@
 /** Time entry tools: log time against tickets, list my time. */
 
 import { z } from "zod";
-import type { ToolRegistrar } from "../auth/roles.js";
+import type { ToolRegistrar } from "./registrar.js";
 import { allOf, q, type CWClient } from "../cw/client.js";
 import type { TimeEntry } from "../cw/types.js";
 import {

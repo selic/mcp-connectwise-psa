@@ -1,7 +1,7 @@
 {
   "name": "mcp-connectwise-psa",
-  "version": "0.1.0",
-  "description": "MCP server for ConnectWise PSA (Manage) — tickets, time entries, companies, and configurations for technicians, with role-based access control and per-tech API keys",
+  "version": "0.2.0",
+  "description": "MCP server for ConnectWise PSA (Manage) — tickets, time entries, companies, and configurations for technicians, with per-tech API keys (BYOK) so writes are attributed to the real member",
   "mcpName": "io.github.selic/mcp-connectwise-psa",
   "type": "module",
   "repository": {
@@ -41,7 +41,7 @@
     "psa",
     "msp",
     "tickets",
-    "rbac"
+    "byok"
   ],
   "engines": {
     "node": ">=20"

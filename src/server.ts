@@ -1,13 +1,13 @@
 /**
- * Builds an McpServer for one session. A session is defined by:
- *  - the ConnectWise credentials it uses (server-wide keys or client-supplied)
- *  - the role that gates which tools are registered
+ * Builds an McpServer for one session. A session is defined by the ConnectWise
+ * credentials it uses (server-wide keys on stdio, or client-supplied via BYOK).
+ * The full tool surface is always registered; the member's ConnectWise security
+ * role is the access control.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createRequire } from "node:module";
-import type { Role } from "./auth/tokens.js";
-import { ToolRegistrar } from "./auth/roles.js";
+import { ToolRegistrar } from "./tools/registrar.js";
 import { CWClient, type CWCredentials } from "./cw/client.js";
 import type { ServerConfig } from "./config.js";
 import { registerTicketTools } from "./tools/tickets.js";
@@ -22,7 +22,6 @@ export const SERVER_NAME = pkg.name;
 export const SERVER_VERSION = pkg.version;
 
 export interface SessionIdentity {
-  role: Role;
   label: string;
   credentials: CWCredentials;
 }
@@ -43,7 +42,7 @@ const INSTRUCTIONS = `# ConnectWise PSA MCP server
 
 ## Notes
 - Lists are paginated; ask for more pages rather than huge page sizes.
-- Some tools may be unavailable depending on this session's access level.`;
+- A write may still fail if your ConnectWise security role forbids it.`;
 
 export function createServer(config: ServerConfig, session: SessionIdentity): McpServer {
   const client = new CWClient({
@@ -58,7 +57,7 @@ export function createServer(config: ServerConfig, session: SessionIdentity): Mc
     { instructions: INSTRUCTIONS }
   );
 
-  const reg = new ToolRegistrar(server, session.role);
+  const reg = new ToolRegistrar(server);
   registerTicketTools(reg, client);
   registerTimeTools(reg, client);
   registerCompanyTools(reg, client);

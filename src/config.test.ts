@@ -18,13 +18,12 @@ describe("normalizeSite", () => {
 });
 
 describe("loadConfig", () => {
-  it("builds an http config without server keys (BYOK allowed)", () => {
+  it("builds an http config without server keys (BYOK)", () => {
     const config = loadConfig(["--transport", "http"], baseEnv);
     expect(config).toMatchObject({
       transport: "http",
       site: "support.example.com",
       companyId: "acme",
-      clientKeyMode: "with-token",
       publicKey: undefined,
     });
   });
@@ -39,24 +38,15 @@ describe("loadConfig", () => {
     expect(config.publicKey).toBe("pub");
   });
 
-  it("requires keys when client keys are disabled", () => {
-    expect(() =>
-      loadConfig(["--transport", "http"], { ...baseEnv, CLIENT_CW_KEYS: "disabled" } as NodeJS.ProcessEnv)
-    ).toThrow(ConfigError);
-  });
-
   it("rejects a lone public or private key", () => {
     expect(() =>
       loadConfig(["--transport", "http"], { ...baseEnv, CW_PUBLIC_KEY: "pub" } as NodeJS.ProcessEnv)
     ).toThrow(ConfigError);
   });
 
-  it("rejects missing site/company/clientId and bad modes", () => {
+  it("rejects missing site/company/clientId", () => {
     expect(() => loadConfig(["--transport", "http"], { CW_COMPANY_ID: "a", CW_CLIENT_ID: "b" } as NodeJS.ProcessEnv)).toThrow(ConfigError);
     expect(() => loadConfig(["--transport", "http"], { CW_SITE: "x", CW_CLIENT_ID: "b" } as NodeJS.ProcessEnv)).toThrow(ConfigError);
     expect(() => loadConfig(["--transport", "http"], { CW_SITE: "x", CW_COMPANY_ID: "a" } as NodeJS.ProcessEnv)).toThrow(ConfigError);
-    expect(() =>
-      loadConfig(["--transport", "http"], { ...baseEnv, CLIENT_CW_KEYS: "sometimes" } as NodeJS.ProcessEnv)
-    ).toThrow(ConfigError);
   });
 });

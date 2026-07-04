@@ -1,21 +1,18 @@
 /**
  * HTTP transport: Express app exposing
  *
- *   POST/GET/DELETE /mcp    MCP streamable-http endpoint (auth + RBAC)
+ *   POST/GET/DELETE /mcp    MCP streamable-http endpoint (BYOK auth)
  *   GET  /health            liveness probe
  *
- * Authentication model:
- *  - Role tokens (Authorization: Bearer …) map to viewer/editor/admin and gate
- *    which tools a session gets, using the server-wide ConnectWise keys.
- *  - Bring-your-own-keys: x-cw-public-key + x-cw-private-key headers bind the
- *    session to that member's API keys with the FULL tool surface — the
- *    member's own ConnectWise security role is the access control, and writes
- *    (notes, time entries) are attributed to that member. Optional
- *    x-cw-member-id header names the member for "my tickets"/"my time".
- *    CLIENT_CW_KEYS controls the policy (with-token default / open / disabled).
+ * Authentication model — bring-your-own-keys only:
+ *  - Every session presents its own ConnectWise member API keys via the
+ *    x-cw-public-key + x-cw-private-key headers. Those keys are both the
+ *    credential and the permission model: ConnectWise enforces that member's
+ *    security role, and writes (notes, time entries) are attributed to that
+ *    member. Optional x-cw-member-id names the member for "my tickets"/"my time".
+ *  - The full tool surface is exposed; there is no MCP-level role gating.
  *  - A session id never carries privilege: every request re-authenticates and
- *    must present the same principal (role + label + key hash) the session was
- *    created with.
+ *    must present the same key pair (SHA-256 hash) the session was created with.
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -23,20 +20,18 @@ import express, { type Request, type Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { ServerConfig } from "../config.js";
-import { authenticateToken, loadTokenEntries, type Role } from "../auth/tokens.js";
 import type { CWCredentials } from "../cw/client.js";
 import { createServer, SERVER_NAME, SERVER_VERSION } from "../server.js";
 
 interface SessionRecord {
   transport: StreamableHTTPServerTransport;
-  role: Role;
   label: string;
-  /** SHA-256 of the client-supplied key pair, or null when server keys are used. */
-  keyHash: string | null;
+  /** SHA-256 of the client-supplied key pair. */
+  keyHash: string;
 }
 
 type AuthOutcome =
-  | { ok: true; role: Role; label: string; credentials: CWCredentials; keyHash: string | null }
+  | { ok: true; label: string; credentials: CWCredentials; keyHash: string }
   | { ok: false; status: number; code: number; message: string };
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
@@ -58,78 +53,35 @@ function headerValue(req: Request, name: string): string | undefined {
 }
 
 /** Resolve the principal for a request. Exported for tests. */
-export function resolveAuth(req: Request, config: ServerConfig): AuthOutcome {
-  const entries = loadTokenEntries();
-  const token = authenticateToken(req.headers.authorization, entries);
+export function resolveAuth(req: Request): AuthOutcome {
   const clientPublic = headerValue(req, "x-cw-public-key");
   const clientPrivate = headerValue(req, "x-cw-private-key");
   const clientMember = headerValue(req, "x-cw-member-id");
 
-  if (clientPublic || clientPrivate) {
-    if (config.clientKeyMode === "disabled") {
-      return unauthorized(
-        "Client-supplied ConnectWise keys are disabled on this server (CLIENT_CW_KEYS=disabled)."
-      );
-    }
-    if (!clientPublic || !clientPrivate) {
-      return unauthorized("Both x-cw-public-key and x-cw-private-key headers are required.");
-    }
-    const keyHash = sha256(`${clientPublic}:${clientPrivate}`);
-    const byokLabel = `byok:${keyHash.slice(0, 8)}`;
-    if (config.clientKeyMode === "with-token" && entries.length > 0 && !token) {
-      return unauthorized(
-        "A valid bearer token is required alongside your ConnectWise keys (CLIENT_CW_KEYS=with-token)."
-      );
-    }
-    const label = token ? `${token.label}+${byokLabel}` : byokLabel;
-    // BYOK sessions get the full tool surface; the member's own ConnectWise
-    // security role is the effective access control.
-    return {
-      ok: true,
-      role: "admin",
-      label,
-      credentials: {
-        publicKey: clientPublic,
-        privateKey: clientPrivate,
-        memberIdentifier: clientMember,
-      },
-      keyHash,
-    };
-  }
-
-  const serverCredentials: CWCredentials | null =
-    config.publicKey && config.privateKey
-      ? {
-          publicKey: config.publicKey,
-          privateKey: config.privateKey,
-          memberIdentifier: config.memberIdentifier,
-        }
-      : null;
-
-  if (entries.length === 0) {
-    if (!serverCredentials) {
-      return unauthorized(
-        "No ConnectWise keys available — set CW_PUBLIC_KEY/CW_PRIVATE_KEY on the server or send x-cw-public-key/x-cw-private-key."
-      );
-    }
-    return { ok: true, role: "admin", label: "dev-unauthenticated", credentials: serverCredentials, keyHash: null };
-  }
-
-  if (!token) {
-    return unauthorized("Unauthorized: invalid or missing bearer token.");
-  }
-  if (!serverCredentials) {
+  if (!clientPublic && !clientPrivate) {
     return unauthorized(
-      "This server has no shared ConnectWise keys — supply your own via the x-cw-public-key/x-cw-private-key headers."
+      "Supply your ConnectWise member API keys via the x-cw-public-key and x-cw-private-key headers."
     );
   }
-  return { ok: true, role: token.role, label: token.label, credentials: serverCredentials, keyHash: null };
+  if (!clientPublic || !clientPrivate) {
+    return unauthorized("Both x-cw-public-key and x-cw-private-key headers are required.");
+  }
+
+  const keyHash = sha256(`${clientPublic}:${clientPrivate}`);
+  return {
+    ok: true,
+    label: `byok:${keyHash.slice(0, 8)}`,
+    credentials: {
+      publicKey: clientPublic,
+      privateKey: clientPrivate,
+      memberIdentifier: clientMember,
+    },
+    keyHash,
+  };
 }
 
 function principalMatches(session: SessionRecord, auth: Extract<AuthOutcome, { ok: true }>): boolean {
-  return (
-    session.role === auth.role && session.label === auth.label && session.keyHash === auth.keyHash
-  );
+  return session.keyHash === auth.keyHash;
 }
 
 export function createApp(config: ServerConfig): express.Express {
@@ -144,7 +96,7 @@ export function createApp(config: ServerConfig): express.Express {
 
   app.post("/mcp", (req: Request, res: Response) => {
     void (async () => {
-      const auth = resolveAuth(req, config);
+      const auth = resolveAuth(req);
       if (!auth.ok) return rpcError(res, auth.status, auth.code, auth.message);
 
       const sessionId = headerValue(req, "mcp-session-id");
@@ -167,11 +119,10 @@ export function createApp(config: ServerConfig): express.Express {
         onsessioninitialized: (newSessionId) => {
           sessions.set(newSessionId, {
             transport,
-            role: auth.role,
             label: auth.label,
             keyHash: auth.keyHash,
           });
-          console.error(`[rbac] session ${newSessionId} created for ${auth.label} (${auth.role})`);
+          console.error(`[auth] session ${newSessionId} created for ${auth.label}`);
         },
       });
       transport.onclose = () => {
@@ -179,7 +130,6 @@ export function createApp(config: ServerConfig): express.Express {
       };
 
       const server = createServer(config, {
-        role: auth.role,
         label: auth.label,
         credentials: auth.credentials,
       });
@@ -193,7 +143,7 @@ export function createApp(config: ServerConfig): express.Express {
 
   const handleSessionRequest = (req: Request, res: Response): void => {
     void (async () => {
-      const auth = resolveAuth(req, config);
+      const auth = resolveAuth(req);
       if (!auth.ok) return rpcError(res, auth.status, auth.code, auth.message);
 
       const sessionId = headerValue(req, "mcp-session-id");

@@ -12,8 +12,8 @@ MCP server for ConnectWise PSA (Manage). TypeScript, ESM, Node ≥20. Transports
 
 - `src/config.ts` — env/flag parsing; `CW_SITE` accepts full URLs (normalized to host)
 - `src/cw/client.ts` — fetch-based CW Manage REST client (API 3.0). Basic auth `companyId+publicKey:privateKey` + mandatory `clientId` header. List queries use CW's grammar: `conditions` (exact for names/ids, `contains` for text, date literals in `[brackets]`), `orderBy`, `page`/`pageSize`, and `fields` (always pass fields — CW records are huge). `q()` quotes condition values; `allOf()` joins fragments
-- `src/auth/` — role tokens + `ToolRegistrar` gating (copied from mcp-itglue, identical semantics)
-- `src/http/app.ts` — `/mcp` sessions bound to principal (role + label + SHA-256 of CW key pair); BYOK via `x-cw-public-key`/`x-cw-private-key`/`x-cw-member-id` headers, policy `CLIENT_CW_KEYS`
+- `src/tools/registrar.ts` — `ToolRegistrar` registers the full tool surface; no MCP-level role gating (ConnectWise enforces the member's security role — unlike mcp-itglue's single account key, PSA is per-member BYOK)
+- `src/http/app.ts` — pure BYOK: every `/mcp` session presents its own `x-cw-public-key`/`x-cw-private-key` (+ optional `x-cw-member-id`) headers; no keys → 401; sessions bound to the SHA-256 of the key pair; a different pair on the same session id → 403. stdio uses the server-wide `CW_PUBLIC_KEY`/`CW_PRIVATE_KEY`
 - `src/server.ts` — one McpServer per session; the session's CW credentials build its `CWClient`
 - `src/tools/` — tickets, time, companies, configurations; helpers in `tools/shared.ts`
 

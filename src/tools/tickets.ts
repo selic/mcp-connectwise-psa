@@ -1,7 +1,7 @@
 /** Service ticket tools: search, my tickets, get, create, update, notes. */
 
 import { z } from "zod";
-import type { ToolRegistrar } from "../auth/roles.js";
+import type { ToolRegistrar } from "./registrar.js";
 import { allOf, q, type CWClient } from "../cw/client.js";
 import type { Ticket, TicketNote } from "../cw/types.js";
 import {

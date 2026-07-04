@@ -1,7 +1,7 @@
 /** Company and contact lookup tools (read-only). */
 
 import { z } from "zod";
-import type { ToolRegistrar } from "../auth/roles.js";
+import type { ToolRegistrar } from "./registrar.js";
 import { allOf, q, type CWClient } from "../cw/client.js";
 import type { Company, Contact } from "../cw/types.js";
 import {
