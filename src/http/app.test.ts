@@ -14,12 +14,12 @@ describe("resolveAuth (BYOK)", () => {
       makeRequest({
         "x-cw-public-key": "pub1",
         "x-cw-private-key": "priv1",
-        "x-cw-member-id": "JSmith",
+        "x-cw-member-id": "jdoe",
       })
     );
     expect(auth).toMatchObject({
       ok: true,
-      credentials: { publicKey: "pub1", privateKey: "priv1", memberIdentifier: "JSmith" },
+      credentials: { publicKey: "pub1", privateKey: "priv1", memberIdentifier: "jdoe" },
     });
     if (auth.ok) {
       expect(auth.keyHash).toHaveLength(64);

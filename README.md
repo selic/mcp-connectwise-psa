@@ -17,7 +17,7 @@ CW_SITE=na.myconnectwise.net \
 CW_COMPANY_ID=yourcompany \
 CW_CLIENT_ID=<integration clientId> \
 CW_PUBLIC_KEY=xxxx CW_PRIVATE_KEY=yyyy \
-CW_MEMBER_IDENTIFIER=JSmith \
+CW_MEMBER_IDENTIFIER=jdoe \
 node dist/index.js
 ```
 
@@ -35,7 +35,7 @@ Claude Desktop / Claude Code config:
         "CW_CLIENT_ID": "<clientId>",
         "CW_PUBLIC_KEY": "xxxx",
         "CW_PRIVATE_KEY": "yyyy",
-        "CW_MEMBER_IDENTIFIER": "JSmith"
+        "CW_MEMBER_IDENTIFIER": "jdoe"
       }
     }
   }
