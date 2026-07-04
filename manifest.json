@@ -1,0 +1,81 @@
+{
+  "manifest_version": "0.3",
+  "name": "mcp-connectwise-psa",
+  "display_name": "ConnectWise PSA",
+  "version": "0.1.0",
+  "description": "ConnectWise PSA (Manage) — tickets, time entries, companies, and configurations",
+  "long_description": "MCP server for the ConnectWise PSA (Manage) REST API. Search and update tickets, log and review time entries, and look up companies and configurations — using your own ConnectWise API member keys, so everything is attributed to you.",
+  "author": {
+    "name": "selic",
+    "url": "https://github.com/selic"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/selic/mcp-connectwise-psa"
+  },
+  "homepage": "https://github.com/selic/mcp-connectwise-psa",
+  "keywords": ["connectwise", "connectwise-manage", "psa", "msp", "tickets", "time-entries"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "CW_SITE": "${user_config.cw_site}",
+        "CW_COMPANY_ID": "${user_config.cw_company_id}",
+        "CW_CLIENT_ID": "${user_config.cw_client_id}",
+        "CW_PUBLIC_KEY": "${user_config.cw_public_key}",
+        "CW_PRIVATE_KEY": "${user_config.cw_private_key}",
+        "CW_MEMBER_IDENTIFIER": "${user_config.cw_member_identifier}"
+      }
+    }
+  },
+  "user_config": {
+    "cw_site": {
+      "type": "string",
+      "title": "ConnectWise site",
+      "description": "Your ConnectWise host, e.g. na.myconnectwise.net or an on-prem hostname",
+      "required": true
+    },
+    "cw_company_id": {
+      "type": "string",
+      "title": "Company ID",
+      "description": "The company id you log in to ConnectWise with",
+      "required": true
+    },
+    "cw_client_id": {
+      "type": "string",
+      "title": "Integration client ID",
+      "description": "Register an integration at developer.connectwise.com to get one",
+      "required": true
+    },
+    "cw_public_key": {
+      "type": "string",
+      "title": "API public key",
+      "description": "ConnectWise → My Account → API Keys",
+      "required": true,
+      "sensitive": true
+    },
+    "cw_private_key": {
+      "type": "string",
+      "title": "API private key",
+      "description": "Shown once when the key pair is created",
+      "required": true,
+      "sensitive": true
+    },
+    "cw_member_identifier": {
+      "type": "string",
+      "title": "Member identifier (optional)",
+      "description": "Your ConnectWise member id — enables \"my tickets\" and \"my time\" tools on older on-prem versions",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20"
+    }
+  }
+}

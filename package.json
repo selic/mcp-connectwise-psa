@@ -2,7 +2,16 @@
   "name": "mcp-connectwise-psa",
   "version": "0.1.0",
   "description": "MCP server for ConnectWise PSA (Manage) — tickets, time entries, companies, and configurations for technicians, with role-based access control and per-tech API keys",
+  "mcpName": "io.github.selic/mcp-connectwise-psa",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/selic/mcp-connectwise-psa.git"
+  },
+  "homepage": "https://github.com/selic/mcp-connectwise-psa#readme",
+  "bugs": {
+    "url": "https://github.com/selic/mcp-connectwise-psa/issues"
+  },
   "main": "dist/index.js",
   "bin": {
     "mcp-connectwise-psa": "dist/index.js"
@@ -14,6 +23,8 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "bundle": "npm run build && node scripts/bundle.mjs",
     "start": "node dist/index.js",
     "start:http": "node dist/index.js --transport http",
     "dev": "tsx src/index.ts",
@@ -23,6 +34,7 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "connectwise",
     "connectwise-manage",

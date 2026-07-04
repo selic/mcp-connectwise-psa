@@ -65,12 +65,13 @@ export function loadConfig(
   argv: string[] = process.argv.slice(2),
   env: NodeJS.ProcessEnv = process.env
 ): ServerConfig {
-  const transport = (flagValue(argv, "--transport") ?? env.TRANSPORT ?? "stdio") as Transport;
+  // `||` not `??`: desktop hosts (MCPB) pass unset optional config as empty strings
+  const transport = ((flagValue(argv, "--transport") ?? env.TRANSPORT) || "stdio") as Transport;
   if (transport !== "stdio" && transport !== "http") {
     throw new ConfigError(`Invalid transport "${transport}" — expected "stdio" or "http"`);
   }
 
-  const portRaw = flagValue(argv, "--port") ?? env.PORT ?? "3000";
+  const portRaw = (flagValue(argv, "--port") ?? env.PORT) || "3000";
   const port = Number(portRaw);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new ConfigError(`Invalid port "${portRaw}"`);
@@ -89,7 +90,7 @@ export function loadConfig(
     );
   }
 
-  const clientKeyMode = (env.CLIENT_CW_KEYS ?? "with-token") as ClientKeyMode;
+  const clientKeyMode = (env.CLIENT_CW_KEYS || "with-token") as ClientKeyMode;
   if (!CLIENT_KEY_MODES.includes(clientKeyMode)) {
     throw new ConfigError(
       `Invalid CLIENT_CW_KEYS "${clientKeyMode}" — expected one of: ${CLIENT_KEY_MODES.join(", ")}`

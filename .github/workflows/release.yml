@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the GitHub release
+  id-token: write # npm provenance
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+      # Publishing may also happen manually (npm login + npm publish), so this
+      # step is a no-op when the version is already live or no token is set —
+      # the GitHub release below must still be created either way.
+      - name: Publish to npm
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "mcp-connectwise-psa@$version" version >/dev/null 2>&1; then
+            echo "mcp-connectwise-psa@$version is already on npm — skipping publish"
+            exit 0
+          fi
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN secret not set and mcp-connectwise-psa@$version is not on npm — skipping publish"
+            echo "Publish manually with: npm login && npm publish"
+            exit 0
+          fi
+          npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Build Claude Desktop bundle
+        run: npm run bundle
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mcp-connectwise-psa.mcpb
+          generate_release_notes: true

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.selic/mcp-connectwise-psa",
+  "title": "ConnectWise PSA",
+  "description": "ConnectWise PSA (Manage) MCP server — tickets, time entries, companies, configurations, RBAC",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/selic/mcp-connectwise-psa",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/selic/mcp-connectwise-psa#readme",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "mcp-connectwise-psa",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "CW_SITE",
+          "description": "ConnectWise host (e.g. na.myconnectwise.net or an on-prem host; full URLs accepted)",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "CW_COMPANY_ID",
+          "description": "ConnectWise login company id",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "CW_CLIENT_ID",
+          "description": "Integration clientId from developer.connectwise.com",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "CW_PUBLIC_KEY",
+          "description": "API member public key",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CW_PRIVATE_KEY",
+          "description": "API member private key",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CW_MEMBER_IDENTIFIER",
+          "description": "Member identifier the API keys belong to — enables \"my tickets\"/\"my time\" tools",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

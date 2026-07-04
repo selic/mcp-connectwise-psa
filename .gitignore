@@ -4,6 +4,13 @@ docs/
 node_modules/
 dist/
 *.log
+
+# Claude Desktop bundle artifacts — built by scripts/bundle.mjs, never committed
+*.mcpb
+.mcpb-build/
+
+# MCP clients write API keys into this during local testing
+.mcp.json
 .env
 .env.*
 vector-index.json
