@@ -84,12 +84,12 @@ Tools are grouped into **toolsets** so a session only sees the capabilities it n
 
 | Toolset key | Tools |
 |---|---|
-| `tickets` | `cw_search_tickets`, `cw_my_tickets`, `cw_get_ticket`, `cw_create_ticket`, `cw_update_ticket`, `cw_add_ticket_note` |
-| `time` | `cw_create_time_entry`, `cw_list_my_time` |
-| `companies` | `cw_search_companies`, `cw_get_company`, `cw_search_contacts` |
+| `tickets` | `cw_search_tickets`, `cw_my_tickets`, `cw_get_ticket`, `cw_create_ticket`, `cw_update_ticket`, `cw_add_ticket_note`, `cw_list_boards`, `cw_get_board`, `cw_list_priorities`, `cw_list_ticket_time`, `cw_list_ticket_tasks` |
+| `time` | `cw_create_time_entry`, `cw_list_my_time`, `cw_list_work_roles`, `cw_list_my_timesheets`, `cw_submit_timesheet` |
+| `companies` | `cw_search_companies`, `cw_get_company`, `cw_search_contacts`, `cw_get_contact`, `cw_list_company_sites` |
 | `configurations` | `cw_list_configurations`, `cw_get_configuration` |
-| `schedule` | `cw_list_schedule_entries`, `cw_my_schedule`, `cw_schedule_ticket`, `cw_list_members`, `cw_get_member` |
-| `finance` | `cw_list_invoices`, `cw_get_invoice`, `cw_list_agreements` |
+| `schedule` | `cw_list_schedule_entries`, `cw_my_schedule`, `cw_schedule_ticket`, `cw_update_schedule_entry`, `cw_delete_schedule_entry`, `cw_member_availability`, `cw_list_members`, `cw_get_member` |
+| `finance` | `cw_list_invoices`, `cw_get_invoice`, `cw_list_agreements`, `cw_get_agreement`, `cw_list_unbilled_time` |
 
 **Presets** bundle keys per persona: `tech` = tickets + time + companies + configurations · `dispatch` = tickets + schedule + companies + configurations · `invoicing` = finance + time + companies · `all` = everything.
 
@@ -98,7 +98,7 @@ Select toolsets with a comma list mixing keys and presets:
 - **HTTP** — the `x-cw-toolsets` header, per session: `x-cw-toolsets: dispatch` or `x-cw-toolsets: tech,finance`.
 - **stdio** — the `CW_TOOLSETS` env var or `--toolsets` flag: `CW_TOOLSETS=invoicing`.
 
-The **default is the `tech` preset** — the same tools this server exposed before toolsets existed, so nothing changes for existing clients until they opt in. Unknown keys in `CW_TOOLSETS`/`--toolsets` fail fast; unknown tokens in the `x-cw-toolsets` header are ignored. No destructive (delete) tools exist; finance is read-only.
+The **default is the `tech` preset** — the same tools this server exposed before toolsets existed, so nothing changes for existing clients until they opt in. Unknown keys in `CW_TOOLSETS`/`--toolsets` fail fast; unknown tokens in the `x-cw-toolsets` header are ignored. The only destructive tool is `cw_delete_schedule_entry` (dispatch); finance is read-only.
 
 ## Configuration reference
 
