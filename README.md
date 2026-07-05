@@ -1,12 +1,15 @@
 # mcp-connectwise-psa
 
-An MCP ([Model Context Protocol](https://modelcontextprotocol.io)) server for [ConnectWise PSA](https://www.connectwise.com/platform/psa) (Manage), focused on what technicians do all day:
+An MCP ([Model Context Protocol](https://modelcontextprotocol.io)) server for [ConnectWise PSA](https://www.connectwise.com/platform/psa) (Manage) — **36 tools across 6 toolsets** covering technicians, dispatchers, and billing, so an AI assistant works PSA the way each role does:
 
-- **Tickets** — my tickets, search, full detail with notes, create, update status/priority/owner, add discussion/internal notes
-- **Time entries** — log time against tickets, review your own time
-- **Companies & contacts** — fast lookup (read-only)
+- **Tickets** — search / my tickets / full detail with notes, create, update status/priority/owner, add discussion/internal notes, plus board·status·priority discovery and per-ticket time & tasks
+- **Time** — log time against tickets, review your own time, work-role lookup, and **list & submit your timesheets**
+- **Companies & contacts** — fast lookup, contact detail (phones/emails), company sites
 - **Configurations** — devices/assets with serials, IPs, OS, warranty (read-only)
-- **Per-tech API keys (BYOK)** — each tech supplies their own ConnectWise member keys; ConnectWise enforces that member's security role, and notes and time entries are attributed to the *actual person*
+- **Dispatch** *(schedule)* — schedule entries (list/mine/create/reschedule/cancel), and **members with their timezone, working hours, and free-vs-booked availability**
+- **Invoicing** *(finance, read-only)* — invoices, agreements, and **unbilled billable time** ready to bill
+- **Toolsets & personas** — enable only what a session needs via the `x-cw-toolsets` header (or `CW_TOOLSETS`); presets `tech` / `dispatch` / `invoicing` / `all`. Default `tech` keeps the surface small
+- **Per-member API keys (BYOK)** — each user supplies their own ConnectWise member keys; ConnectWise enforces that member's security role, and every write is attributed to the *actual person*
 - **Transports** — stdio for local use, streamable HTTP for shared deployments; Docker image included
 
 ## Quick start (local, stdio)
