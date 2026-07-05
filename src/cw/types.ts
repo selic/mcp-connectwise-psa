@@ -89,6 +89,25 @@ export interface TimeEntry extends Record<string, unknown> {
   notes?: string;
 }
 
+export interface WorkRole extends Record<string, unknown> {
+  id: number;
+  name?: string;
+  hourlyRate?: number;
+  inactiveFlag?: boolean;
+}
+
+export interface Timesheet extends Record<string, unknown> {
+  id: number;
+  member?: Ref;
+  year?: number;
+  period?: number;
+  dateStart?: string;
+  dateEnd?: string;
+  status?: string;
+  hours?: number;
+  deadline?: string;
+}
+
 export interface Company extends Record<string, unknown> {
   id: number;
   identifier?: string;
