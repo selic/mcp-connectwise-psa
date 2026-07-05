@@ -252,6 +252,11 @@ export interface Agreement extends Record<string, unknown> {
   startDate?: string;
   endDate?: string;
   billAmount?: number;
+  billingCycle?: Ref;
   cancelledFlag?: boolean;
   noEndingDateFlag?: boolean;
+  applicationUnits?: string;
+  applicationLimit?: number;
+  applicationCycle?: string;
+  applicationUnlimitedFlag?: boolean;
 }
