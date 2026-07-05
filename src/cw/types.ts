@@ -121,6 +121,13 @@ export interface Company extends Record<string, unknown> {
   website?: string;
 }
 
+export interface CommunicationItem {
+  type?: Ref;
+  value?: string;
+  defaultFlag?: boolean;
+  communicationType?: string;
+}
+
 export interface Contact extends Record<string, unknown> {
   id: number;
   firstName?: string;
@@ -129,6 +136,20 @@ export interface Contact extends Record<string, unknown> {
   company?: Ref;
   defaultPhoneNbr?: string;
   inactiveFlag?: boolean;
+  communicationItems?: CommunicationItem[];
+}
+
+export interface Site extends Record<string, unknown> {
+  id: number;
+  name?: string;
+  addressLine1?: string;
+  city?: string;
+  stateReference?: Ref;
+  zip?: string;
+  phoneNumber?: string;
+  timeZone?: Ref;
+  inactiveFlag?: boolean;
+  primaryAddressFlag?: boolean;
 }
 
 export interface Configuration extends Record<string, unknown> {
