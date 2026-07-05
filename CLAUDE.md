@@ -26,6 +26,7 @@ MCP server for ConnectWise PSA (Manage). TypeScript, ESM, Node ≥20. Transports
 - PATCH uses ops like `{op:"replace", path:"status", value:{name:"…"}}` — name-based value objects work
 - Ticket assignment lives in both `owner/identifier` and the `resources` string — search both
 - Schedule (`schedule.ts`) and Finance (`finance.ts`) tools are **live-verified** against the NDR training instance: schedule entries have no `where` field and carry `type/identifier` (not `type/name`); lists order by `dateStart desc` so dated rows lead. `cw_schedule_ticket` POST (`objectId` + `member/identifier` + `type/identifier:"S"` + `dateStart/dateEnd`) works and round-trips. Finance invoice/agreement fields needed no changes
+- Member dispatch data (`cw_list_members`/`cw_get_member`): a real member carries `timeZone`, `calendar` (→ `/schedule/calendars/{id}` for weekly hours + `holidayList`), `workRole`, `dailyCapacity`/`scheduleCapacity`, `restrictScheduleFlag`, `hideMemberInDispatchPortalFlag`. **Inactive stub members omit `timeZone`/`calendar`** (they're null → dropped from the response), so don't conclude the fields are missing from a stub record — check a real active member. `cw_get_member` resolves working hours by following the member's `calendar` id
 
 ## Conventions
 

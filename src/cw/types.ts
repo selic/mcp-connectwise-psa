@@ -96,6 +96,42 @@ export interface Member extends Record<string, unknown> {
   identifier: string;
   firstName?: string;
   lastName?: string;
+  title?: string;
+  inactiveFlag?: boolean;
+  timeZone?: Ref;
+  /** Working-hours calendar reference (→ /schedule/calendars/{id}). */
+  calendar?: Ref;
+  workRole?: Ref;
+  defaultLocation?: Ref;
+  securityLocation?: Ref;
+  type?: Ref;
+  dailyCapacity?: number;
+  scheduleCapacity?: number;
+  restrictScheduleFlag?: boolean;
+  hideMemberInDispatchPortalFlag?: boolean;
+  officeEmail?: string;
+  primaryEmail?: string;
+}
+
+/** Working-hours calendar (/schedule/calendars) — start/end per weekday + holidays. */
+export interface Calendar extends Record<string, unknown> {
+  id: number;
+  name?: string;
+  holidayList?: Ref;
+  mondayStartTime?: string;
+  mondayEndTime?: string;
+  tuesdayStartTime?: string;
+  tuesdayEndTime?: string;
+  wednesdayStartTime?: string;
+  wednesdayEndTime?: string;
+  thursdayStartTime?: string;
+  thursdayEndTime?: string;
+  fridayStartTime?: string;
+  fridayEndTime?: string;
+  saturdayStartTime?: string;
+  saturdayEndTime?: string;
+  sundayStartTime?: string;
+  sundayEndTime?: string;
 }
 
 /** Schedule entry (/schedule/entries) — a dispatch/appointment slot. */

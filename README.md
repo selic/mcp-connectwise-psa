@@ -88,7 +88,7 @@ Tools are grouped into **toolsets** so a session only sees the capabilities it n
 | `time` | `cw_create_time_entry`, `cw_list_my_time` |
 | `companies` | `cw_search_companies`, `cw_get_company`, `cw_search_contacts` |
 | `configurations` | `cw_list_configurations`, `cw_get_configuration` |
-| `schedule` | `cw_list_schedule_entries`, `cw_my_schedule`, `cw_schedule_ticket` |
+| `schedule` | `cw_list_schedule_entries`, `cw_my_schedule`, `cw_schedule_ticket`, `cw_list_members`, `cw_get_member` |
 | `finance` | `cw_list_invoices`, `cw_get_invoice`, `cw_list_agreements` |
 
 **Presets** bundle keys per persona: `tech` = tickets + time + companies + configurations · `dispatch` = tickets + schedule + companies + configurations · `invoicing` = finance + time + companies · `all` = everything.

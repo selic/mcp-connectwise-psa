@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { ToolRegistrar } from "./registrar.js";
 import { allOf, q, type CWClient } from "../cw/client.js";
-import type { ScheduleEntry } from "../cw/types.js";
+import type { Calendar, Member, ScheduleEntry } from "../cw/types.js";
 import {
   clip,
   failure,
@@ -51,6 +51,44 @@ export function scheduleConditions(args: {
     args.on_or_after && `dateStart>=[${args.on_or_after}]`,
     args.on_or_before && `dateStart<=[${args.on_or_before}]`
   );
+}
+
+const MEMBER_LIST_FIELDS =
+  "id,identifier,firstName,lastName,inactiveFlag,timeZone/name,calendar/name,workRole/name,defaultLocation/name,dailyCapacity,scheduleCapacity,restrictScheduleFlag,hideMemberInDispatchPortalFlag";
+const MEMBER_DETAIL_FIELDS =
+  "id,identifier,firstName,lastName,title,inactiveFlag,timeZone/name,calendar/id,calendar/name,workRole/name,defaultLocation/name,securityLocation/name,dailyCapacity,scheduleCapacity,restrictScheduleFlag,hideMemberInDispatchPortalFlag,officeEmail,primaryEmail";
+const CALENDAR_FIELDS =
+  "id,name,holidayList/name,mondayStartTime,mondayEndTime,tuesdayStartTime,tuesdayEndTime,wednesdayStartTime,wednesdayEndTime,thursdayStartTime,thursdayEndTime,fridayStartTime,fridayEndTime,saturdayStartTime,saturdayEndTime,sundayStartTime,sundayEndTime";
+
+function memberLine(m: Member): string {
+  const name = [m.firstName, m.lastName].filter(Boolean).join(" ") || "?";
+  const cap = m.scheduleCapacity ?? m.dailyCapacity;
+  const bits = [
+    `TZ: ${m.timeZone?.name ?? "—"}`,
+    `hours: ${m.calendar?.name ?? "—"}`,
+    m.workRole?.name && `role: ${m.workRole.name}`,
+    cap != null && `cap: ${cap}h/day`,
+  ].filter(Boolean);
+  const flags = [
+    m.restrictScheduleFlag && "schedule-restricted",
+    m.hideMemberInDispatchPortalFlag && "hidden-in-dispatch",
+    m.inactiveFlag && "INACTIVE",
+  ].filter(Boolean);
+  return [
+    `#${m.id} ${m.identifier} — ${name}`,
+    `  ${bits.join(" | ")}${flags.length ? ` | ${flags.join(", ")}` : ""}`,
+  ].join("\n");
+}
+
+const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+
+function calendarHours(cal: Calendar): string[] {
+  return WEEKDAYS.map((d) => {
+    const start = cal[`${d}StartTime`] as string | undefined;
+    const end = cal[`${d}EndTime`] as string | undefined;
+    const label = d.charAt(0).toUpperCase() + d.slice(1);
+    return `  ${label}: ${start && end ? `${start}–${end}` : "off"}`;
+  });
 }
 
 export function registerScheduleTools(reg: ToolRegistrar, client: CWClient): void {
@@ -174,6 +212,112 @@ export function registerScheduleTools(reg: ToolRegistrar, client: CWClient): voi
         return text(
           `Scheduled ticket #${args.ticket_id} to ${args.member} (${args.time_start} → ${args.time_end}) — entry #${entry.id}.`
         );
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_list_members",
+      title: "List ConnectWise Members",
+      description:
+        "List members (technicians) for dispatch — each with timezone, working-hours calendar name, " +
+        "work role, and daily/schedule capacity. Filter by name or identifier; excludes inactive by default.",
+      inputSchema: {
+        name_contains: z.string().optional().describe("Match first or last name (substring)"),
+        identifier: z.string().optional().describe("Exact member identifier"),
+        include_inactive: z.boolean().default(false).describe("Include inactive members (default false)"),
+        schedulable_only: z
+          .boolean()
+          .default(false)
+          .describe("Only members that are not schedule-restricted (default false)"),
+        page_number: pageNumberField,
+        page_size: pageSizeField,
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: {
+      name_contains?: string;
+      identifier?: string;
+      include_inactive: boolean;
+      schedulable_only: boolean;
+      page_number: number;
+      page_size: number;
+      response_format: "markdown" | "json";
+    }) => {
+      try {
+        const conditions = allOf(
+          !args.include_inactive && "inactiveFlag=false",
+          args.identifier && `identifier=${q(args.identifier)}`,
+          args.name_contains &&
+            `(firstName contains ${q(args.name_contains)} OR lastName contains ${q(args.name_contains)})`,
+          args.schedulable_only && "restrictScheduleFlag=false"
+        );
+        const page = await client.getList<Member>("/system/members", {
+          conditions,
+          orderBy: "identifier asc",
+          fields: MEMBER_LIST_FIELDS,
+          page: args.page_number,
+          pageSize: args.page_size,
+        });
+        if (page.items.length === 0) return text("No members found.");
+        if (args.response_format === "json") return text(clip(json(page)));
+        const lines = [`# Members (${page.items.length} on this page)`, ""];
+        for (const m of page.items) lines.push(memberLine(m), "");
+        lines.push(pageFooter(page.page, page.hasMore));
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_get_member",
+      title: "Get ConnectWise Member",
+      description:
+        "Get one member's dispatch profile: timezone, work role, location, capacity, and their working " +
+        "hours (resolved from the member's calendar, including the holiday list).",
+      inputSchema: {
+        member_id: z.number().int().positive().describe("The member ID (from cw_list_members)"),
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: { member_id: number; response_format: "markdown" | "json" }) => {
+      try {
+        const m = await client.getOne<Member>(`/system/members/${args.member_id}`, MEMBER_DETAIL_FIELDS);
+        let calendar: Calendar | undefined;
+        if (m.calendar?.id) {
+          try {
+            calendar = await client.getOne<Calendar>(`/schedule/calendars/${m.calendar.id}`, CALENDAR_FIELDS);
+          } catch {
+            /* calendar is best-effort; member profile is still useful without it */
+          }
+        }
+        if (args.response_format === "json") return text(clip(json({ ...m, calendarDetail: calendar })));
+
+        const name = [m.firstName, m.lastName].filter(Boolean).join(" ") || m.identifier;
+        const cap = m.scheduleCapacity ?? m.dailyCapacity;
+        const lines = [
+          `# ${name} (${m.identifier})${m.inactiveFlag ? " — INACTIVE" : ""}`,
+          "",
+          `- **Title**: ${m.title ?? "—"} | **Work role**: ${m.workRole?.name ?? "—"}`,
+          `- **Timezone**: ${m.timeZone?.name ?? "—"}`,
+          `- **Location**: ${m.defaultLocation?.name ?? m.securityLocation?.name ?? "—"}`,
+          `- **Capacity**: ${cap != null ? `${cap}h/day` : "—"}${m.restrictScheduleFlag ? " | schedule-restricted" : ""}${m.hideMemberInDispatchPortalFlag ? " | hidden in dispatch" : ""}`,
+        ];
+        if (calendar) {
+          lines.push("", `## Working hours — ${calendar.name ?? "calendar"}`, ...calendarHours(calendar));
+          if (calendar.holidayList?.name) lines.push(`  Holidays: ${calendar.holidayList.name}`);
+        } else if (m.calendar?.name) {
+          lines.push("", `Working-hours calendar: ${m.calendar.name} (hours unavailable)`);
+        }
+        return text(clip(lines.join("\n")));
       } catch (error) {
         return failure(error);
       }
