@@ -105,7 +105,6 @@ export interface ScheduleEntry extends Record<string, unknown> {
   objectId?: number;
   name?: string;
   member?: Ref;
-  where?: Ref;
   status?: Ref;
   type?: Ref;
   dateStart?: string;

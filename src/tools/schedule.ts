@@ -18,13 +18,13 @@ import {
 } from "./shared.js";
 
 const ENTRY_FIELDS =
-  "id,objectId,name,member/identifier,member/name,type/name,status/name,where/name,dateStart,dateEnd,hours,doneFlag";
+  "id,objectId,name,member/identifier,member/name,type/name,type/identifier,status/name,dateStart,dateEnd,hours,doneFlag";
 
 function entryLine(e: ScheduleEntry): string {
   const who = e.member?.identifier ?? e.member?.name ?? "?";
   const when = `${e.dateStart ?? "?"} → ${e.dateEnd ?? "?"}`;
   const what = e.name ?? (e.objectId ? `object #${e.objectId}` : "(unnamed)");
-  const tag = [e.type?.name, e.status?.name].filter(Boolean).join(" / ");
+  const tag = [e.type?.name ?? e.type?.identifier, e.status?.name].filter(Boolean).join(" / ");
   return [
     `#${e.id} ${what}`,
     `  ${who} | ${when}${e.hours != null ? ` | ${e.hours}h` : ""}${tag ? ` | ${tag}` : ""}${e.doneFlag ? " | done" : ""}`,
@@ -84,7 +84,7 @@ export function registerScheduleTools(reg: ToolRegistrar, client: CWClient): voi
       try {
         const page = await client.getList<ScheduleEntry>("/schedule/entries", {
           conditions: scheduleConditions(args),
-          orderBy: "dateStart asc",
+          orderBy: "dateStart desc",
           fields: ENTRY_FIELDS,
           page: args.page_number,
           pageSize: args.page_size,
@@ -125,7 +125,7 @@ export function registerScheduleTools(reg: ToolRegistrar, client: CWClient): voi
         if (!memberId) return { ...text(UNKNOWN_MEMBER_MESSAGE), isError: true } as ToolResult;
         const page = await client.getList<ScheduleEntry>("/schedule/entries", {
           conditions: scheduleConditions({ member: memberId, ...args }),
-          orderBy: "dateStart asc",
+          orderBy: "dateStart desc",
           fields: ENTRY_FIELDS,
           page: args.page_number,
           pageSize: args.page_size,
