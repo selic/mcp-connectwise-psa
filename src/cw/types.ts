@@ -23,6 +23,46 @@ export interface Ticket extends Record<string, unknown> {
   _info?: Record<string, unknown>;
 }
 
+export interface Board extends Record<string, unknown> {
+  id: number;
+  name?: string;
+  inactiveFlag?: boolean;
+  department?: Ref;
+  location?: Ref;
+}
+
+export interface BoardStatus extends Record<string, unknown> {
+  id: number;
+  name?: string;
+  closedStatus?: boolean;
+  defaultFlag?: boolean;
+  sortOrder?: number;
+  inactive?: boolean;
+}
+
+export interface BoardType extends Record<string, unknown> {
+  id: number;
+  name?: string;
+  category?: Ref;
+  defaultFlag?: boolean;
+  inactiveFlag?: boolean;
+}
+
+export interface Priority extends Record<string, unknown> {
+  id: number;
+  name?: string;
+  sortOrder?: number;
+  defaultFlag?: boolean;
+}
+
+export interface TicketTask extends Record<string, unknown> {
+  id: number;
+  notes?: string;
+  closedFlag?: boolean;
+  priority?: number;
+  resolution?: string;
+}
+
 export interface TicketNote extends Record<string, unknown> {
   id: number;
   text?: string;

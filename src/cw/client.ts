@@ -105,7 +105,7 @@ export class CWClient {
   }
 
   private async request<T>(
-    method: "GET" | "POST" | "PATCH",
+    method: "GET" | "POST" | "PATCH" | "DELETE",
     path: string,
     query?: Record<string, string | number | undefined>,
     body?: unknown
@@ -178,6 +178,11 @@ export class CWClient {
   /** JSON-Patch style operations, e.g. [{op:"replace", path:"status", value:{name:"Closed"}}]. */
   async patch<T>(path: string, operations: Array<{ op: string; path: string; value: unknown }>): Promise<T> {
     return this.request<T>("PATCH", path, undefined, operations);
+  }
+
+  /** DELETE a resource (e.g. /schedule/entries/{id}). Returns void (CW replies 204/200). */
+  async del(path: string): Promise<void> {
+    await this.request<void>("DELETE", path);
   }
 
   /**
