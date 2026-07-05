@@ -25,7 +25,7 @@ MCP server for ConnectWise PSA (Manage). TypeScript, ESM, Node ≥20. Transports
 - `/system/myAccount` 404s on some on-prem versions — member identity falls back to explicit `CW_MEMBER_IDENTIFIER`/`x-cw-member-id`; "my …" tools return `UNKNOWN_MEMBER_MESSAGE` when unknown
 - PATCH uses ops like `{op:"replace", path:"status", value:{name:"…"}}` — name-based value objects work
 - Ticket assignment lives in both `owner/identifier` and the `resources` string — search both
-- **Schedule (`schedule.ts`) and Finance (`finance.ts`) tools are NOT yet verified against a live instance** — the `*_FIELDS` constants, condition fields (e.g. invoice `date`), and the `cw_schedule_ticket` POST body (`objectId` + `type/identifier:"S"`) are best-guess from the CW API docs. Verify against the NDR instance and correct field names before relying on them; drop `cw_schedule_ticket` to read-only if the POST is unreliable
+- Schedule (`schedule.ts`) and Finance (`finance.ts`) tools are **live-verified** against the NDR training instance: schedule entries have no `where` field and carry `type/identifier` (not `type/name`); lists order by `dateStart desc` so dated rows lead. `cw_schedule_ticket` POST (`objectId` + `member/identifier` + `type/identifier:"S"` + `dateStart/dateEnd`) works and round-trips. Finance invoice/agreement fields needed no changes
 
 ## Conventions
 
