@@ -1,12 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Request } from "express";
-import { resolveAuth } from "./app.js";
+import type { ServerConfig } from "../config.js";
+import { resolveAuth, sessionToolsets } from "./app.js";
 
 function makeRequest(headers: Record<string, string>): Request {
   const lowered: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers)) lowered[key.toLowerCase()] = value;
   return { headers: lowered } as unknown as Request;
 }
+
+const configWithToolsets = (toolsets: ServerConfig["toolsets"]): ServerConfig =>
+  ({ toolsets }) as ServerConfig;
 
 describe("resolveAuth (BYOK)", () => {
   it("binds the member keys and derives a stable label + hash", () => {
@@ -57,5 +61,29 @@ describe("resolveAuth (BYOK)", () => {
     } else {
       throw new Error("expected all to authenticate");
     }
+  });
+});
+
+describe("sessionToolsets", () => {
+  const config = configWithToolsets(["tickets", "time", "companies", "configurations"]);
+
+  it("falls back to the config default when no header is present", () => {
+    expect(sessionToolsets(makeRequest({}), config)).toEqual(config.toolsets);
+  });
+
+  it("uses the x-cw-toolsets header when present", () => {
+    expect(sessionToolsets(makeRequest({ "x-cw-toolsets": "invoicing" }), config)).toEqual([
+      "finance",
+      "time",
+      "companies",
+    ]);
+  });
+
+  it("ignores unknown header tokens without throwing", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(sessionToolsets(makeRequest({ "x-cw-toolsets": "finance,bogus" }), config)).toEqual([
+      "finance",
+    ]);
+    spy.mockRestore();
   });
 });

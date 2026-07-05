@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { ToolRegistrar } from "./registrar.js";
 import { allOf, q, type CWClient } from "../cw/client.js";
-import type { Company, Contact } from "../cw/types.js";
+import type { Company, Contact, Site } from "../cw/types.js";
 import {
   clip,
   failure,
@@ -148,6 +148,77 @@ export function registerCompanyTools(reg: ToolRegistrar, client: CWClient): void
           );
         }
         lines.push("", pageFooter(page.page, page.hasMore));
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_get_contact",
+      title: "Get ConnectWise Contact",
+      description: "Get one contact with their phone numbers and email addresses (communication items).",
+      inputSchema: {
+        contact_id: z.number().int().positive().describe("The contact ID (from cw_search_contacts)"),
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: { contact_id: number; response_format: "markdown" | "json" }) => {
+      try {
+        const c = await client.getOne<Contact>(
+          `/company/contacts/${args.contact_id}`,
+          "id,firstName,lastName,title,company/name,company/id,inactiveFlag,communicationItems"
+        );
+        if (args.response_format === "json") return text(clip(json(c)));
+        const lines = [
+          `# ${c.firstName ?? ""} ${c.lastName ?? ""}${c.inactiveFlag ? " (inactive)" : ""}`.trim(),
+          "",
+          `- **Company**: ${c.company?.name ?? "?"}`,
+          `- **Title**: ${c.title ?? "—"}`,
+        ];
+        const comms = c.communicationItems ?? [];
+        if (comms.length) {
+          lines.push("", "## Contact methods");
+          for (const ci of comms)
+            lines.push(`- ${ci.type?.name ?? ci.communicationType ?? "?"}: ${ci.value ?? ""}${ci.defaultFlag ? " (default)" : ""}`);
+        }
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_list_company_sites",
+      title: "List ConnectWise Company Sites",
+      description: "List a company's sites (locations/addresses), with phone and timezone.",
+      inputSchema: {
+        company_id: z.number().int().positive().describe("The company ID"),
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: { company_id: number; response_format: "markdown" | "json" }) => {
+      try {
+        const page = await client.getList<Site>(`/company/companies/${args.company_id}/sites`, {
+          fields: "id,name,addressLine1,city,stateReference/name,zip,phoneNumber,timeZone/name,inactiveFlag,primaryAddressFlag",
+          pageSize: 200,
+        });
+        if (page.items.length === 0) return text(`No sites for company #${args.company_id}.`);
+        if (args.response_format === "json") return text(clip(json(page.items)));
+        const lines = [`# Sites for company #${args.company_id} (${page.items.length})`, ""];
+        for (const s of page.items) {
+          const addr = [s.addressLine1, s.city, s.stateReference?.name, s.zip].filter(Boolean).join(", ");
+          lines.push(
+            `- **${s.name ?? "?"}**${s.primaryAddressFlag ? " (primary)" : ""}${s.inactiveFlag ? " (inactive)" : ""}`,
+            `  ${addr || "—"}${s.phoneNumber ? ` | ${s.phoneNumber}` : ""}${s.timeZone?.name ? ` | TZ: ${s.timeZone.name}` : ""}`
+          );
+        }
         return text(clip(lines.join("\n")));
       } catch (error) {
         return failure(error);

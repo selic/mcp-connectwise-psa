@@ -1,8 +1,8 @@
 /**
  * Builds an McpServer for one session. A session is defined by the ConnectWise
- * credentials it uses (server-wide keys on stdio, or client-supplied via BYOK).
- * The full tool surface is always registered; the member's ConnectWise security
- * role is the access control.
+ * credentials it uses (server-wide keys on stdio, or client-supplied via BYOK)
+ * and the toolsets it selected. Only the selected toolsets are registered; the
+ * member's ConnectWise security role is the access control.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -10,10 +10,13 @@ import { createRequire } from "node:module";
 import { ToolRegistrar } from "./tools/registrar.js";
 import { CWClient, type CWCredentials } from "./cw/client.js";
 import type { ServerConfig } from "./config.js";
+import type { ToolsetKey } from "./tools/toolsets.js";
 import { registerTicketTools } from "./tools/tickets.js";
 import { registerTimeTools } from "./tools/time.js";
 import { registerCompanyTools } from "./tools/companies.js";
 import { registerConfigurationTools } from "./tools/configurations.js";
+import { registerScheduleTools } from "./tools/schedule.js";
+import { registerFinanceTools } from "./tools/finance.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { name: string; version: string };
@@ -21,9 +24,21 @@ const pkg = require("../package.json") as { name: string; version: string };
 export const SERVER_NAME = pkg.name;
 export const SERVER_VERSION = pkg.version;
 
+/** Maps each toolset key to the function that registers its tools. */
+const TOOLSETS: Record<ToolsetKey, (reg: ToolRegistrar, client: CWClient) => void> = {
+  tickets: registerTicketTools,
+  time: registerTimeTools,
+  companies: registerCompanyTools,
+  configurations: registerConfigurationTools,
+  schedule: registerScheduleTools,
+  finance: registerFinanceTools,
+};
+
 export interface SessionIdentity {
   label: string;
   credentials: CWCredentials;
+  /** Capability groups this session exposes. */
+  toolsets: ToolsetKey[];
 }
 
 const INSTRUCTIONS = `# ConnectWise PSA MCP server
@@ -42,7 +57,8 @@ const INSTRUCTIONS = `# ConnectWise PSA MCP server
 
 ## Notes
 - Lists are paginated; ask for more pages rather than huge page sizes.
-- A write may still fail if your ConnectWise security role forbids it.`;
+- A write may still fail if your ConnectWise security role forbids it.
+- Only the tools for this session's enabled toolsets are listed; other capabilities may exist on the server.`;
 
 export function createServer(config: ServerConfig, session: SessionIdentity): McpServer {
   const client = new CWClient({
@@ -58,10 +74,9 @@ export function createServer(config: ServerConfig, session: SessionIdentity): Mc
   );
 
   const reg = new ToolRegistrar(server);
-  registerTicketTools(reg, client);
-  registerTimeTools(reg, client);
-  registerCompanyTools(reg, client);
-  registerConfigurationTools(reg, client);
+  for (const key of session.toolsets) {
+    TOOLSETS[key](reg, client);
+  }
 
   return server;
 }

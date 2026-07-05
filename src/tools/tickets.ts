@@ -3,7 +3,16 @@
 import { z } from "zod";
 import type { ToolRegistrar } from "./registrar.js";
 import { allOf, q, type CWClient } from "../cw/client.js";
-import type { Ticket, TicketNote } from "../cw/types.js";
+import type {
+  Board,
+  BoardStatus,
+  BoardType,
+  Priority,
+  Ticket,
+  TicketNote,
+  TicketTask,
+  TimeEntry,
+} from "../cw/types.js";
 import {
   clip,
   failure,
@@ -300,6 +309,194 @@ export function registerTicketTools(reg: ToolRegistrar, client: CWClient): void 
         return text(
           `Note ${created.id} added to ticket #${args.ticket_id} (${args.internal ? "internal" : "discussion"}${args.resolution ? ", resolution" : ""}).`
         );
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_list_boards",
+      title: "List ConnectWise Service Boards",
+      description:
+        "List service boards. Use to discover exact board names for cw_search_tickets / cw_create_ticket, " +
+        "and board ids for cw_get_board (statuses and types).",
+      inputSchema: {
+        name_contains: z.string().optional().describe("Filter by board name (substring)"),
+        include_inactive: z.boolean().default(false).describe("Include inactive boards (default false)"),
+        page_number: pageNumberField,
+        page_size: pageSizeField,
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: {
+      name_contains?: string;
+      include_inactive: boolean;
+      page_number: number;
+      page_size: number;
+      response_format: "markdown" | "json";
+    }) => {
+      try {
+        const page = await client.getList<Board>("/service/boards", {
+          conditions: allOf(
+            !args.include_inactive && "inactiveFlag=false",
+            args.name_contains && `name contains ${q(args.name_contains)}`
+          ),
+          orderBy: "name asc",
+          fields: "id,name,inactiveFlag,department/name,location/name",
+          page: args.page_number,
+          pageSize: args.page_size,
+        });
+        if (page.items.length === 0) return text("No boards found.");
+        if (args.response_format === "json") return text(clip(json(page)));
+        const lines = [`# Service boards (${page.items.length})`, ""];
+        for (const b of page.items)
+          lines.push(`- #${b.id} **${b.name ?? "?"}**${b.inactiveFlag ? " (inactive)" : ""}`);
+        lines.push("", pageFooter(page.page, page.hasMore));
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_get_board",
+      title: "Get ConnectWise Board Statuses and Types",
+      description:
+        "List the statuses and types available on a service board — the exact names cw_update_ticket " +
+        "and cw_create_ticket require. Get the board id from cw_list_boards.",
+      inputSchema: {
+        board_id: z.number().int().positive().describe("The board ID (from cw_list_boards)"),
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: { board_id: number; response_format: "markdown" | "json" }) => {
+      try {
+        const [statuses, types] = await Promise.all([
+          client.getList<BoardStatus>(`/service/boards/${args.board_id}/statuses`, {
+            orderBy: "sortOrder asc",
+            fields: "id,name,closedStatus,defaultFlag,inactive",
+            pageSize: 200,
+          }),
+          client.getList<BoardType>(`/service/boards/${args.board_id}/types`, {
+            orderBy: "name asc",
+            fields: "id,name,defaultFlag,inactiveFlag",
+            pageSize: 200,
+          }),
+        ]);
+        if (args.response_format === "json")
+          return text(clip(json({ statuses: statuses.items, types: types.items })));
+        const lines = [`# Board #${args.board_id}`, "", "## Statuses"];
+        for (const s of statuses.items)
+          if (!s.inactive)
+            lines.push(`- ${s.name}${s.closedStatus ? " (closed)" : ""}${s.defaultFlag ? " (default)" : ""}`);
+        lines.push("", "## Types");
+        for (const t of types.items)
+          if (!t.inactiveFlag) lines.push(`- ${t.name}${t.defaultFlag ? " (default)" : ""}`);
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_list_priorities",
+      title: "List ConnectWise Priorities",
+      description: "List ticket priorities (exact names for cw_create_ticket / cw_update_ticket).",
+      inputSchema: { response_format: responseFormatField },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: { response_format: "markdown" | "json" }) => {
+      try {
+        const page = await client.getList<Priority>("/service/priorities", {
+          orderBy: "sortOrder asc",
+          fields: "id,name,sortOrder,defaultFlag",
+          pageSize: 200,
+        });
+        if (args.response_format === "json") return text(clip(json(page.items)));
+        const lines = ["# Priorities", ""];
+        for (const p of page.items) lines.push(`- ${p.name}${p.defaultFlag ? " (default)" : ""}`);
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_list_ticket_time",
+      title: "List Time Entries on a Ticket",
+      description: "List all time entries logged against a ticket (by any member), newest first.",
+      inputSchema: {
+        ticket_id: z.number().int().positive().describe("The ticket ID"),
+        page_number: pageNumberField,
+        page_size: pageSizeField,
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: {
+      ticket_id: number;
+      page_number: number;
+      page_size: number;
+      response_format: "markdown" | "json";
+    }) => {
+      try {
+        const page = await client.getList<TimeEntry>("/time/entries", {
+          conditions: `chargeToId=${args.ticket_id} AND chargeToType="ServiceTicket"`,
+          orderBy: "timeStart desc",
+          fields: "id,member/identifier,timeStart,timeEnd,actualHours,billableOption,workType/name,notes",
+          page: args.page_number,
+          pageSize: args.page_size,
+        });
+        if (page.items.length === 0) return text(`No time entries on ticket #${args.ticket_id}.`);
+        if (args.response_format === "json") return text(clip(json(page)));
+        const total = page.items.reduce((s, e) => s + (e.actualHours ?? 0), 0);
+        const lines = [`# Time on ticket #${args.ticket_id} (${page.items.length} entries, ${total}h shown)`, ""];
+        for (const e of page.items)
+          lines.push(
+            `- ${e.member?.identifier ?? "?"} | ${e.actualHours ?? 0}h | ${e.billableOption ?? "?"} | ${e.timeStart ?? "?"}${e.notes ? ` — ${e.notes.slice(0, 80)}` : ""}`
+          );
+        lines.push("", pageFooter(page.page, page.hasMore));
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_list_ticket_tasks",
+      title: "List ConnectWise Ticket Tasks",
+      description: "List the task/checklist items on a ticket, with their done state.",
+      inputSchema: {
+        ticket_id: z.number().int().positive().describe("The ticket ID"),
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: { ticket_id: number; response_format: "markdown" | "json" }) => {
+      try {
+        const page = await client.getList<TicketTask>(`/service/tickets/${args.ticket_id}/tasks`, {
+          fields: "id,notes,closedFlag,priority,resolution",
+          pageSize: 200,
+        });
+        if (page.items.length === 0) return text(`No tasks on ticket #${args.ticket_id}.`);
+        if (args.response_format === "json") return text(clip(json(page.items)));
+        const done = page.items.filter((t) => t.closedFlag).length;
+        const lines = [`# Tasks on ticket #${args.ticket_id} (${done}/${page.items.length} done)`, ""];
+        for (const t of page.items)
+          lines.push(`- [${t.closedFlag ? "x" : " "}] ${t.notes ?? "(no text)"}${t.resolution ? ` → ${t.resolution}` : ""}`);
+        return text(clip(lines.join("\n")));
       } catch (error) {
         return failure(error);
       }

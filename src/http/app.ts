@@ -22,6 +22,7 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { ServerConfig } from "../config.js";
 import type { CWCredentials } from "../cw/client.js";
 import { createServer, SERVER_NAME, SERVER_VERSION } from "../server.js";
+import { resolveToolsets, type ToolsetKey } from "../tools/toolsets.js";
 
 interface SessionRecord {
   transport: StreamableHTTPServerTransport;
@@ -84,6 +85,15 @@ function principalMatches(session: SessionRecord, auth: Extract<AuthOutcome, { o
   return session.keyHash === auth.keyHash;
 }
 
+/**
+ * Toolsets for a new session: the x-cw-toolsets header narrows/widens within the
+ * valid keys, falling back to the server default. Unknown tokens are ignored
+ * (warn) rather than failing the request. Exported for tests.
+ */
+export function sessionToolsets(req: Request, config: ServerConfig): ToolsetKey[] {
+  return resolveToolsets(headerValue(req, "x-cw-toolsets"), config.toolsets, "warn");
+}
+
 export function createApp(config: ServerConfig): express.Express {
   const app = express();
   app.use(express.json({ limit: "2mb" }));
@@ -132,6 +142,7 @@ export function createApp(config: ServerConfig): express.Express {
       const server = createServer(config, {
         label: auth.label,
         credentials: auth.credentials,
+        toolsets: sessionToolsets(req, config),
       });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);

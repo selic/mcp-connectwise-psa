@@ -78,20 +78,27 @@ x-cw-member-id:   <your member identifier>   (optional — enables "my tickets"/
 
 Local **stdio** is single-user and uses the `CW_PUBLIC_KEY`/`CW_PRIVATE_KEY` from the environment instead of headers.
 
-## Tools
+## Toolsets
 
-The full tool surface is always available; whether a write succeeds is governed by the member's ConnectWise security role.
+Tools are grouped into **toolsets** so a session only sees the capabilities it needs — a dispatcher doesn't need the invoicing tools, and a small tool surface keeps the assistant focused (and its context cheap). Whether a write actually succeeds is still governed by the member's ConnectWise security role.
 
-| Tool | Access |
+| Toolset key | Tools |
 |---|---|
-| `cw_my_tickets`, `cw_search_tickets`, `cw_get_ticket` | read |
-| `cw_list_my_time` | read |
-| `cw_search_companies`, `cw_get_company`, `cw_search_contacts` | read |
-| `cw_list_configurations`, `cw_get_configuration` | read |
-| `cw_create_ticket`, `cw_update_ticket`, `cw_add_ticket_note` | write |
-| `cw_create_time_entry` | write |
+| `tickets` | `cw_search_tickets`, `cw_my_tickets`, `cw_get_ticket`, `cw_create_ticket`, `cw_update_ticket`, `cw_add_ticket_note`, `cw_list_boards`, `cw_get_board`, `cw_list_priorities`, `cw_list_ticket_time`, `cw_list_ticket_tasks` |
+| `time` | `cw_create_time_entry`, `cw_list_my_time`, `cw_list_work_roles`, `cw_list_my_timesheets`, `cw_submit_timesheet` |
+| `companies` | `cw_search_companies`, `cw_get_company`, `cw_search_contacts`, `cw_get_contact`, `cw_list_company_sites` |
+| `configurations` | `cw_list_configurations`, `cw_get_configuration` |
+| `schedule` | `cw_list_schedule_entries`, `cw_my_schedule`, `cw_schedule_ticket`, `cw_update_schedule_entry`, `cw_delete_schedule_entry`, `cw_member_availability`, `cw_list_members`, `cw_get_member` |
+| `finance` | `cw_list_invoices`, `cw_get_invoice`, `cw_list_agreements`, `cw_get_agreement`, `cw_list_unbilled_time` |
 
-No destructive (delete) tools in v1.
+**Presets** bundle keys per persona: `tech` = tickets + time + companies + configurations · `dispatch` = tickets + schedule + companies + configurations · `invoicing` = finance + time + companies · `all` = everything.
+
+Select toolsets with a comma list mixing keys and presets:
+
+- **HTTP** — the `x-cw-toolsets` header, per session: `x-cw-toolsets: dispatch` or `x-cw-toolsets: tech,finance`.
+- **stdio** — the `CW_TOOLSETS` env var or `--toolsets` flag: `CW_TOOLSETS=invoicing`.
+
+The **default is the `tech` preset** — the same tools this server exposed before toolsets existed, so nothing changes for existing clients until they opt in. Unknown keys in `CW_TOOLSETS`/`--toolsets` fail fast; unknown tokens in the `x-cw-toolsets` header are ignored. The only destructive tool is `cw_delete_schedule_entry` (dispatch); finance is read-only.
 
 ## Configuration reference
 
@@ -103,6 +110,7 @@ No destructive (delete) tools in v1.
 | `CW_PUBLIC_KEY` / `CW_PRIVATE_KEY` | — | API member keys — required for stdio; unused on HTTP (BYOK) |
 | `CW_MEMBER_IDENTIFIER` | — | Member the stdio keys belong to (my-tickets/my-time) |
 | `TRANSPORT` / `PORT` | `stdio` / `3000` | Transport selection |
+| `CW_TOOLSETS` | `tech` | Enabled toolsets (keys/presets); HTTP overrides per session via `x-cw-toolsets` |
 
 ## Notes & limits
 

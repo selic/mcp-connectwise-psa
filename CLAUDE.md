@@ -14,8 +14,9 @@ MCP server for ConnectWise PSA (Manage). TypeScript, ESM, Node ≥20. Transports
 - `src/cw/client.ts` — fetch-based CW Manage REST client (API 3.0). Basic auth `companyId+publicKey:privateKey` + mandatory `clientId` header. List queries use CW's grammar: `conditions` (exact for names/ids, `contains` for text, date literals in `[brackets]`), `orderBy`, `page`/`pageSize`, and `fields` (always pass fields — CW records are huge). `q()` quotes condition values; `allOf()` joins fragments
 - `src/tools/registrar.ts` — `ToolRegistrar` registers the full tool surface; no MCP-level role gating (ConnectWise enforces the member's security role — unlike mcp-itglue's single account key, PSA is per-member BYOK)
 - `src/http/app.ts` — pure BYOK: every `/mcp` session presents its own `x-cw-public-key`/`x-cw-private-key` (+ optional `x-cw-member-id`) headers; no keys → 401; sessions bound to the SHA-256 of the key pair; a different pair on the same session id → 403. stdio uses the server-wide `CW_PUBLIC_KEY`/`CW_PRIVATE_KEY`
-- `src/server.ts` — one McpServer per session; the session's CW credentials build its `CWClient`
-- `src/tools/` — tickets, time, companies, configurations; helpers in `tools/shared.ts`
+- `src/server.ts` — one McpServer per session; the session's CW credentials build its `CWClient`. Holds the `TOOLSETS` registry (key → `register*Tools`); `createServer` registers only `session.toolsets`
+- `src/tools/toolsets.ts` — capability keys (`tickets`/`time`/`companies`/`configurations`/`schedule`/`finance`), persona presets (`tech`/`dispatch`/`invoicing`/`all`), and `resolveToolsets()`. Selection: `CW_TOOLSETS`/`--toolsets` (stdio, unknown key → `ConfigError`) or the `x-cw-toolsets` header (HTTP, unknown token ignored). Default = `tech` preset (backward compatible with pre-toolset behavior)
+- `src/tools/` — tickets, time, companies, configurations (tech); schedule (dispatch); finance (invoicing, read-only); helpers in `tools/shared.ts`
 
 ## ConnectWise API gotchas (verified against a live instance)
 
@@ -24,6 +25,9 @@ MCP server for ConnectWise PSA (Manage). TypeScript, ESM, Node ≥20. Transports
 - `/system/myAccount` 404s on some on-prem versions — member identity falls back to explicit `CW_MEMBER_IDENTIFIER`/`x-cw-member-id`; "my …" tools return `UNKNOWN_MEMBER_MESSAGE` when unknown
 - PATCH uses ops like `{op:"replace", path:"status", value:{name:"…"}}` — name-based value objects work
 - Ticket assignment lives in both `owner/identifier` and the `resources` string — search both
+- Schedule (`schedule.ts`) and Finance (`finance.ts`) tools are **live-verified** against the NDR training instance: schedule entries have no `where` field and carry `type/identifier` (not `type/name`); lists order by `dateStart desc` so dated rows lead. `cw_schedule_ticket` POST (`objectId` + `member/identifier` + `type/identifier:"S"` + `dateStart/dateEnd`) works and round-trips. Finance invoice/agreement fields needed no changes
+- Member dispatch data (`cw_list_members`/`cw_get_member`): a real member carries `timeZone`, `calendar` (→ `/schedule/calendars/{id}` for weekly hours + `holidayList`), `workRole`, `dailyCapacity`/`scheduleCapacity`, `restrictScheduleFlag`, `hideMemberInDispatchPortalFlag`. **Inactive stub members omit `timeZone`/`calendar`** (they're null → dropped from the response), so don't conclude the fields are missing from a stub record — check a real active member. `cw_get_member` resolves working hours by following the member's `calendar` id
+- More live-verified endpoints (all v0.3.0): board statuses/types are **per-board** (`/service/boards/{id}/statuses` and `/types`); unbilled time = `billableOption="Billable" AND invoiceFlag=false` (`invoiceFlag=true` ⇒ already on an invoice); ticket time = `/time/entries` with `chargeToId={ticket} AND chargeToType="ServiceTicket"`; timesheet submit is `POST /time/sheets/{id}/submit` (empty/non-Open sheets are rejected by CW with a business message, passed through). Some **system members (e.g. `zadmin`, id 150) are not in `/system/members`** and their id 404s — availability/get-member need a standard member identifier. `CWClient` now has `del()` (DELETE) for `cw_delete_schedule_entry`
 
 ## Conventions
 

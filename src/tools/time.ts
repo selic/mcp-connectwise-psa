@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { ToolRegistrar } from "./registrar.js";
 import { allOf, q, type CWClient } from "../cw/client.js";
-import type { TimeEntry } from "../cw/types.js";
+import type { Timesheet, TimeEntry, WorkRole } from "../cw/types.js";
 import {
   clip,
   failure,
@@ -140,6 +140,106 @@ export function registerTimeTools(reg: ToolRegistrar, client: CWClient): void {
         }
         lines.push("", `**Total on this page:** ${total.toFixed(2)}h`, pageFooter(page.page, page.hasMore));
         return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_list_work_roles",
+      title: "List ConnectWise Work Roles",
+      description: "List work roles (used when logging time). Excludes inactive by default.",
+      inputSchema: {
+        name_contains: z.string().optional().describe("Filter by work role name (substring)"),
+        include_inactive: z.boolean().default(false).describe("Include inactive roles (default false)"),
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: { name_contains?: string; include_inactive: boolean; response_format: "markdown" | "json" }) => {
+      try {
+        const page = await client.getList<WorkRole>("/time/workRoles", {
+          conditions: allOf(
+            !args.include_inactive && "inactiveFlag=false",
+            args.name_contains && `name contains ${q(args.name_contains)}`
+          ),
+          orderBy: "name asc",
+          fields: "id,name,hourlyRate,inactiveFlag",
+          pageSize: 200,
+        });
+        if (page.items.length === 0) return text("No work roles found.");
+        if (args.response_format === "json") return text(clip(json(page.items)));
+        const lines = ["# Work roles", ""];
+        for (const w of page.items) lines.push(`- ${w.name}${w.inactiveFlag ? " (inactive)" : ""}`);
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_list_my_timesheets",
+      title: "List My ConnectWise Timesheets",
+      description:
+        "List timesheets for the member this session acts as, newest first, with their status " +
+        "(Open, Submitted, Approved…). Use the id with cw_submit_timesheet.",
+      inputSchema: {
+        page_number: pageNumberField,
+        page_size: pageSizeField,
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: { page_number: number; page_size: number; response_format: "markdown" | "json" }) => {
+      try {
+        const memberId = await client.me();
+        if (!memberId) return { ...text(UNKNOWN_MEMBER_MESSAGE), isError: true } as ToolResult;
+        const page = await client.getList<Timesheet>("/time/sheets", {
+          conditions: `member/identifier=${q(memberId)}`,
+          orderBy: "dateStart desc",
+          fields: "id,year,period,dateStart,dateEnd,status,hours",
+          page: args.page_number,
+          pageSize: args.page_size,
+        });
+        if (page.items.length === 0) return text(`No timesheets for ${memberId}.`);
+        if (args.response_format === "json") return text(clip(json(page)));
+        const lines = [`# Timesheets for ${memberId} (${page.items.length})`, ""];
+        for (const s of page.items)
+          lines.push(
+            `- #${s.id} | ${s.dateStart?.slice(0, 10) ?? "?"} → ${s.dateEnd?.slice(0, 10) ?? "?"} | ${s.hours ?? 0}h | **${s.status ?? "?"}**`
+          );
+        lines.push("", pageFooter(page.page, page.hasMore));
+        return text(clip(lines.join("\n")));
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
+      name: "cw_submit_timesheet",
+      title: "Submit ConnectWise Timesheet",
+      description:
+        "Submit a timesheet for approval. Get the timesheet id from cw_list_my_timesheets; " +
+        "only Open timesheets can be submitted.",
+      inputSchema: {
+        timesheet_id: z.number().int().positive().describe("The timesheet ID (from cw_list_my_timesheets)"),
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async (args: { timesheet_id: number; response_format: "markdown" | "json" }) => {
+      try {
+        const sheet = await client.post<Timesheet>(`/time/sheets/${args.timesheet_id}/submit`, {});
+        if (args.response_format === "json") return text(json(sheet));
+        return text(
+          `Timesheet #${args.timesheet_id} submitted${sheet?.status ? ` — status: ${sheet.status}` : ""}.`
+        );
       } catch (error) {
         return failure(error);
       }

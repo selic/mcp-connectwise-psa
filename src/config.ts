@@ -13,12 +13,17 @@
  *                         "my tickets"/"my time")
  *   TRANSPORT             stdio | http (default: stdio)
  *   PORT                  HTTP port (default: 3000)
+ *   CW_TOOLSETS           Comma list of toolset keys/presets to expose (default:
+ *                         the "tech" preset). HTTP sessions may override per
+ *                         request via the x-cw-toolsets header.
  *
  * Access model: stdio uses the server-wide keys above (single local user). HTTP
  * sessions each bring their own member API keys (BYOK) via x-cw-public-key /
  * x-cw-private-key headers; ConnectWise enforces that member's security role.
  * There is no MCP-level role gating.
  */
+
+import { DEFAULT_TOOLSETS, resolveToolsets, type ToolsetKey } from "./tools/toolsets.js";
 
 export type Transport = "stdio" | "http";
 
@@ -34,6 +39,8 @@ export interface ServerConfig {
   privateKey: string | undefined;
   /** Member identifier for the stdio keys (for my-tickets/my-time). */
   memberIdentifier: string | undefined;
+  /** Toolsets for stdio, and the fallback default for HTTP sessions. */
+  toolsets: ToolsetKey[];
 }
 
 export class ConfigError extends Error {}
@@ -95,6 +102,13 @@ export function loadConfig(
     throw new ConfigError("CW_PUBLIC_KEY / CW_PRIVATE_KEY are required for stdio transport");
   }
 
+  let toolsets: ToolsetKey[];
+  try {
+    toolsets = resolveToolsets(flagValue(argv, "--toolsets") ?? env.CW_TOOLSETS, DEFAULT_TOOLSETS, "throw");
+  } catch (err) {
+    throw new ConfigError(err instanceof Error ? err.message : String(err));
+  }
+
   return {
     transport,
     port,
@@ -104,5 +118,6 @@ export function loadConfig(
     publicKey,
     privateKey,
     memberIdentifier: env.CW_MEMBER_IDENTIFIER || undefined,
+    toolsets,
   };
 }

@@ -14,6 +14,7 @@ Options:
   --transport stdio|http   Transport (default: stdio; env TRANSPORT)
   --port <n>               HTTP port (default: 3000; env PORT)
   --site <host>            ConnectWise host (env CW_SITE)
+  --toolsets <list>        Enabled toolsets (env CW_TOOLSETS; default: tech)
   --help                   Show this help
 
 Environment:
@@ -23,10 +24,13 @@ Environment:
   CW_PUBLIC_KEY            API member public key (required for stdio)
   CW_PRIVATE_KEY           API member private key (required for stdio)
   CW_MEMBER_IDENTIFIER     Member the stdio keys belong to (my-tickets/my-time)
+  CW_TOOLSETS              Comma list of toolset keys/presets (default: tech).
+                           Keys: tickets, time, companies, configurations,
+                           schedule, finance. Presets: tech, dispatch, invoicing, all.
 
 HTTP sessions authenticate per-request with their own member keys via the
 x-cw-public-key / x-cw-private-key headers (BYOK); the CW_* keys above are used
-only by stdio.
+only by stdio. HTTP clients pick toolsets per session with the x-cw-toolsets header.
 `;
 
 function logStartupSummary(config: ServerConfig): void {
@@ -49,6 +53,7 @@ async function runStdio(config: ServerConfig): Promise<void> {
       privateKey: config.privateKey!,
       memberIdentifier: config.memberIdentifier,
     },
+    toolsets: config.toolsets,
   });
   await server.connect(new StdioServerTransport());
   console.error(`${SERVER_NAME} v${SERVER_VERSION} running on stdio (${config.site})`);
