@@ -22,6 +22,7 @@ MCP server for ConnectWise PSA (Manage). TypeScript, ESM, Node ≥20. Transports
 
 - Timestamps must have whole seconds — strip milliseconds (`cwTimestamp` in tools/time.ts) or CW returns "Unsupported format applied to timeStart"
 - Time entries fail with a "report periods" error when no open time period exists for the date — instance configuration, not a bug; the message is passed through
+- `cw_update_time_entry` (PATCH `/time/entries/{id}`): CW **ignores a direct `actualHours` replace** when `timeStart`/`timeEnd` exist (hours are derived) — so duration is edited via `timeStart`/`timeEnd` (which recompute hours), and the tool intentionally has no `hours` field. Live-verified: editing `timeEnd` moved 0.22h→0.5h; `notes`/`billableOption`/`workType` patch fine
 - `/system/myAccount` 404s on some on-prem versions — member identity falls back to explicit `CW_MEMBER_IDENTIFIER`/`x-cw-member-id`; "my …" tools return `UNKNOWN_MEMBER_MESSAGE` when unknown
 - PATCH uses ops like `{op:"replace", path:"status", value:{name:"…"}}` — name-based value objects work
 - Ticket assignment lives in both `owner/identifier` and the `resources` string — search both

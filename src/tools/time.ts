@@ -90,6 +90,71 @@ export function registerTimeTools(reg: ToolRegistrar, client: CWClient): void {
 
   reg.register(
     {
+      name: "cw_update_time_entry",
+      title: "Update ConnectWise Time Entry",
+      description:
+        "Edit an existing time entry — its notes, start/end, billable flag, or work role. Only provided " +
+        "fields change. Duration is set by time_start/time_end (hours are derived, not edited directly). " +
+        "Governed by your ConnectWise security role (typically your own entries).",
+      inputSchema: {
+        entry_id: z.number().int().positive().describe("The time entry ID (from cw_list_my_time)"),
+        notes: z.string().min(1).optional().describe("New work-performed notes"),
+        time_start: z.string().optional().describe("New start time, ISO 8601"),
+        time_end: z.string().optional().describe("New end time, ISO 8601 (changes the billed hours)"),
+        billable: z.boolean().optional().describe("Billable (true) or do-not-bill (false)"),
+        work_role: z.string().optional().describe("Work role name"),
+        response_format: responseFormatField,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args: {
+      entry_id: number;
+      notes?: string;
+      time_start?: string;
+      time_end?: string;
+      billable?: boolean;
+      work_role?: string;
+      response_format: "markdown" | "json";
+    }) => {
+      try {
+        let start: Date | undefined;
+        let end: Date | undefined;
+        if (args.time_start !== undefined) {
+          start = new Date(args.time_start);
+          if (Number.isNaN(start.getTime()))
+            return { ...text("Error: time_start is not a valid ISO timestamp."), isError: true } as ToolResult;
+        }
+        if (args.time_end !== undefined) {
+          end = new Date(args.time_end);
+          if (Number.isNaN(end.getTime()))
+            return { ...text("Error: time_end is not a valid ISO timestamp."), isError: true } as ToolResult;
+        }
+        if (start && end && end <= start)
+          return { ...text("Error: time_end must be after time_start."), isError: true } as ToolResult;
+
+        const ops: Array<{ op: string; path: string; value: unknown }> = [];
+        if (args.notes !== undefined) ops.push({ op: "replace", path: "notes", value: args.notes });
+        if (start) ops.push({ op: "replace", path: "timeStart", value: cwTimestamp(start) });
+        if (end) ops.push({ op: "replace", path: "timeEnd", value: cwTimestamp(end) });
+        if (args.billable !== undefined)
+          ops.push({ op: "replace", path: "billableOption", value: args.billable ? "Billable" : "DoNotBill" });
+        if (args.work_role !== undefined)
+          ops.push({ op: "replace", path: "workType", value: { name: args.work_role } });
+        if (ops.length === 0) return text("Nothing to update — provide at least one field to change.");
+
+        const entry = await client.patch<TimeEntry>(`/time/entries/${args.entry_id}`, ops);
+        if (args.response_format === "json") return text(json(entry));
+        return text(
+          `Time entry ${entry.id} updated — ${entry.actualHours ?? "?"}h | ${entry.billableOption ?? "?"} | ${entry.timeStart ?? "?"}${entry.notes ? ` — ${entry.notes.slice(0, 80)}` : ""}.`
+        );
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  reg.register(
+    {
       name: "cw_list_my_time",
       title: "My ConnectWise Time Entries",
       description:
