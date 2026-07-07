@@ -209,6 +209,10 @@ export function registerTicketTools(reg: ToolRegistrar, client: CWClient): void 
         summary: z.string().min(1).max(100).describe("Ticket summary (max 100 chars)"),
         initial_description: z.string().optional().describe("Initial description note"),
         priority: z.string().optional().describe("Priority name (board default when omitted)"),
+        status: z
+          .string()
+          .optional()
+          .describe("Status name (board default when omitted; must exist on the board — see cw_get_board)"),
         response_format: responseFormatField,
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
@@ -219,6 +223,7 @@ export function registerTicketTools(reg: ToolRegistrar, client: CWClient): void 
       summary: string;
       initial_description?: string;
       priority?: string;
+      status?: string;
       response_format: "markdown" | "json";
     }) => {
       try {
@@ -228,6 +233,7 @@ export function registerTicketTools(reg: ToolRegistrar, client: CWClient): void 
           board: { name: args.board },
           ...(args.initial_description ? { initialDescription: args.initial_description } : {}),
           ...(args.priority ? { priority: { name: args.priority } } : {}),
+          ...(args.status ? { status: { name: args.status } } : {}),
         });
         if (args.response_format === "json") return text(json(ticket));
         return text(
