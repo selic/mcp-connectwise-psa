@@ -108,11 +108,17 @@ export function registerAdvancedTools(reg: ToolRegistrar, client: CWClient): voi
       description:
         "Read-only GET for any ConnectWise REST path (the part after /apis/3.0, e.g. /procurement/purchaseorders). " +
         "ALWAYS pass fields (CW records are huge). Filter with conditions (CW grammar: exact = for ids/names, " +
-        "'contains' for text, dates as [2026-07-01T00:00:00Z]); sort with order_by. Discover paths with cw_find_endpoint.",
+        "'contains' for text, dates as [2026-07-01T00:00:00Z]); filter on child collections (e.g. a company's " +
+        "types) with child_conditions; sort with order_by. Discover paths with cw_find_endpoint.",
       inputSchema: {
         path: z.string().min(1).describe('Endpoint path after /apis/3.0, e.g. "/sales/opportunities" or "/procurement/catalog/741"'),
         fields: z.string().optional().describe("Comma-separated fields to return (strongly recommended)"),
         conditions: z.string().optional().describe('CW conditions, e.g. status/name="Open" AND company/id=42'),
+        child_conditions: z
+          .string()
+          .optional()
+          .describe('Filter on child-collection fields (CW rejects these in conditions), e.g. types/id=46 or types/name="MS Agreement"'),
+        custom_field_conditions: z.string().optional().describe("Filter on custom fields, e.g. caption='Region' AND value='EU'"),
         order_by: z.string().optional().describe('Sort, e.g. "dateEntered desc"'),
         page_number: pageNumberField,
         page_size: pageSizeField,
@@ -124,6 +130,8 @@ export function registerAdvancedTools(reg: ToolRegistrar, client: CWClient): voi
       path: string;
       fields?: string;
       conditions?: string;
+      child_conditions?: string;
+      custom_field_conditions?: string;
       order_by?: string;
       page_number: number;
       page_size: number;
@@ -133,6 +141,8 @@ export function registerAdvancedTools(reg: ToolRegistrar, client: CWClient): voi
         const path = normalizeApiPath(args.path);
         const result = await client.rawGet(path, {
           conditions: args.conditions,
+          childConditions: args.child_conditions,
+          customFieldConditions: args.custom_field_conditions,
           fields: args.fields,
           orderBy: args.order_by,
           page: args.page_number,
