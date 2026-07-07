@@ -17,6 +17,7 @@ import { registerCompanyTools } from "./tools/companies.js";
 import { registerConfigurationTools } from "./tools/configurations.js";
 import { registerScheduleTools } from "./tools/schedule.js";
 import { registerFinanceTools } from "./tools/finance.js";
+import { registerAdvancedTools } from "./tools/advanced.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { name: string; version: string };
@@ -32,6 +33,7 @@ const TOOLSETS: Record<ToolsetKey, (reg: ToolRegistrar, client: CWClient) => voi
   configurations: registerConfigurationTools,
   schedule: registerScheduleTools,
   finance: registerFinanceTools,
+  advanced: registerAdvancedTools,
 };
 
 export interface SessionIdentity {

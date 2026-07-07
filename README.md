@@ -1,6 +1,6 @@
 # mcp-connectwise-psa
 
-An MCP ([Model Context Protocol](https://modelcontextprotocol.io)) server for [ConnectWise PSA](https://www.connectwise.com/platform/psa) (Manage) — **36 tools across 6 toolsets** covering technicians, dispatchers, and billing, so an AI assistant works PSA the way each role does:
+An MCP ([Model Context Protocol](https://modelcontextprotocol.io)) server for [ConnectWise PSA](https://www.connectwise.com/platform/psa) (Manage) — **curated tools across 7 toolsets** covering technicians, dispatchers, and billing, plus an opt-in escape hatch for the rest of the API, so an AI assistant works PSA the way each role does:
 
 - **Tickets** — search / my tickets / full detail with notes, create, update status/priority/owner, add discussion/internal notes, plus board·status·priority discovery and per-ticket time & tasks
 - **Time** — log time against tickets, review your own time, work-role lookup, and **list & submit your timesheets**
@@ -93,8 +93,11 @@ Tools are grouped into **toolsets** so a session only sees the capabilities it n
 | `configurations` | `cw_list_configurations`, `cw_get_configuration` |
 | `schedule` | `cw_list_schedule_entries`, `cw_my_schedule`, `cw_schedule_ticket`, `cw_update_schedule_entry`, `cw_delete_schedule_entry`, `cw_member_availability`, `cw_list_members`, `cw_get_member` |
 | `finance` | `cw_list_invoices`, `cw_get_invoice`, `cw_list_agreements`, `cw_get_agreement`, `cw_list_unbilled_time` |
+| `advanced` | `cw_find_endpoint` (search the full CW API — ~1,150 endpoints), `cw_get` (read-only GET on any path) |
 
-**Presets** bundle keys per persona: `tech` = tickets + time + companies + configurations · `dispatch` = tickets + schedule + companies + configurations · `invoicing` = finance + time + companies · `all` = everything.
+**Presets** bundle keys per persona: `tech` = tickets + time + companies + configurations · `dispatch` = tickets + schedule + companies + configurations · `invoicing` = finance + time + companies · `all` = everything (incl. `advanced`).
+
+The **`advanced`** toolset is an opt-in escape hatch (not in any persona preset): `cw_find_endpoint` searches a bundled catalog of the whole ConnectWise API, and `cw_get` performs a read-only GET on any path — so an assistant can reach the long tail (procurement, sales, projects, system…) the curated tools don't wrap. Enable it explicitly (`x-cw-toolsets: advanced` or `all`).
 
 Select toolsets with a comma list mixing keys and presets:
 

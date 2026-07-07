@@ -186,6 +186,15 @@ export class CWClient {
   }
 
   /**
+   * Generic GET passthrough for the `advanced` toolset — returns the raw JSON
+   * (array for list endpoints, object for a single resource). Query params
+   * (conditions/fields/orderBy/page/pageSize) are passed through as-is.
+   */
+  async rawGet(path: string, query?: Record<string, string | number | undefined>): Promise<unknown> {
+    return this.request<unknown>("GET", path, query);
+  }
+
+  /**
    * The member identifier this session acts as. Uses the explicitly provided
    * identifier when available; otherwise tries /system/myAccount once (not
    * present on all CW versions). Returns undefined when unknown.

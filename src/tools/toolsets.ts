@@ -16,6 +16,7 @@ export const TOOLSET_KEYS = [
   "configurations",
   "schedule",
   "finance",
+  "advanced",
 ] as const;
 
 export type ToolsetKey = (typeof TOOLSET_KEYS)[number];
