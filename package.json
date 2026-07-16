@@ -2,15 +2,15 @@
   "name": "mcp-connectwise-psa",
   "version": "0.4.0",
   "description": "MCP server for ConnectWise PSA (Manage) — tickets, time entries, companies, and configurations for technicians, with per-tech API keys (BYOK) so writes are attributed to the real member",
-  "mcpName": "io.github.selic/mcp-connectwise-psa",
+  "mcpName": "io.github.mspstack/mcp-connectwise-psa",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/selic/mcp-connectwise-psa.git"
+    "url": "git+https://github.com/mspstack/mcp-connectwise-psa.git"
   },
-  "homepage": "https://github.com/selic/mcp-connectwise-psa#readme",
+  "homepage": "https://github.com/mspstack/mcp-connectwise-psa#readme",
   "bugs": {
-    "url": "https://github.com/selic/mcp-connectwise-psa/issues"
+    "url": "https://github.com/mspstack/mcp-connectwise-psa/issues"
   },
   "main": "dist/index.js",
   "bin": {

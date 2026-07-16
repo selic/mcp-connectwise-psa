@@ -12,9 +12,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/selic/mcp-connectwise-psa"
+    "url": "https://github.com/mspstack/mcp-connectwise-psa"
   },
-  "homepage": "https://github.com/selic/mcp-connectwise-psa",
+  "homepage": "https://github.com/mspstack/mcp-connectwise-psa",
   "keywords": ["connectwise", "connectwise-manage", "psa", "msp", "tickets", "time-entries"],
   "server": {
     "type": "node",

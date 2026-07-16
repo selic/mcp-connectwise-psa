@@ -1,14 +1,14 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.selic/mcp-connectwise-psa",
+  "name": "io.github.mspstack/mcp-connectwise-psa",
   "title": "ConnectWise PSA",
   "description": "ConnectWise PSA (Manage) MCP server — tickets, time entries, companies, configurations, BYOK",
   "version": "0.4.0",
   "repository": {
-    "url": "https://github.com/selic/mcp-connectwise-psa",
+    "url": "https://github.com/mspstack/mcp-connectwise-psa",
     "source": "github"
   },
-  "websiteUrl": "https://github.com/selic/mcp-connectwise-psa#readme",
+  "websiteUrl": "https://github.com/mspstack/mcp-connectwise-psa#readme",
   "packages": [
     {
       "registryType": "npm",
